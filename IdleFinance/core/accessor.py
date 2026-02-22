@@ -21,7 +21,7 @@ from ..utils import (
     ewma_return,
     capm_return,
 )
-from ..models import black_litterman, risk_metrics
+from ..models import black_litterman, risk_metrics, covariances
 
 
 @pd.api.extensions.register_dataframe_accessor("finance")
@@ -160,26 +160,13 @@ class DataFrameFinanceAccessor:
         ret = self.returns(returns_data=returns_data)
         return risk_metrics.rolling_volatility(ret, window=window, annualized=annualized, frequency=frequency)
 
-    def covariance(self, returns_data: bool = False, **kwargs) -> pd.DataFrame:
+    def covariance(self, returns_data: bool = False, method: str = "sample", **kwargs) -> pd.DataFrame:
         """
-        Calculate covariance matrix from prices or returns.
+        Calculate covariance matrix from prices or returns using specific method.
 
         Formula: Σ_ij = Cov(R_i, R_j)  (sample covariance of period returns).
-
-        Parameters
-        ----------
-        returns_data : bool, default False
-            If True, assume input is returns; otherwise convert from prices.
-        **kwargs
-            Passed to pd.DataFrame.cov().
-
-        Returns
-        -------
-        pd.DataFrame
-            Covariance matrix.
         """
-        ret = self.returns(returns_data=returns_data)
-        return ret.cov(**kwargs)
+        return covariances.covariance(self._obj, method=method, returns_data=returns_data, **kwargs)
 
     def expected_returns(self, method: str = "mean_historical", returns_data: bool = False, **kwargs) -> pd.Series:
         """
