@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 
 
-def annualized_return(series, frequency=252):
+def annualized_return(series: pd.Series | pd.DataFrame, frequency: int = 252) -> float | pd.Series:
     """
     Calculate annualized return from daily returns.
 
@@ -30,7 +30,11 @@ def annualized_return(series, frequency=252):
     return (1 + series.mean()) ** frequency - 1
 
 
-def annualized_volatility(series, annualized=True, frequency=252):
+def annualized_volatility(
+    series: pd.Series | pd.DataFrame, 
+    annualized: bool = True, 
+    frequency: int = 252
+) -> float | pd.Series:
     """
     Calculate volatility (standard deviation of returns).
 
@@ -56,7 +60,11 @@ def annualized_volatility(series, annualized=True, frequency=252):
     return vol
 
 
-def sharpe_ratio(series, risk_free_rate=0.03, frequency=252):
+def sharpe_ratio(
+    series: pd.Series | pd.DataFrame, 
+    risk_free_rate: float = 0.03, 
+    frequency: int = 252
+) -> float | pd.Series:
     """
     Calculate Sharpe Ratio (excess return per unit of risk).
 
@@ -83,7 +91,12 @@ def sharpe_ratio(series, risk_free_rate=0.03, frequency=252):
     return excess / vol if vol > 0 else 0
 
 
-def sortino_ratio(series, risk_free_rate=0.03, target_return=0, frequency=252):
+def sortino_ratio(
+    series: pd.Series | pd.DataFrame, 
+    risk_free_rate: float = 0.03, 
+    target_return: float = 0.0, 
+    frequency: int = 252
+) -> float | pd.Series:
     """
     Calculate Sortino Ratio (excess return per unit of downside risk).
 
@@ -122,7 +135,10 @@ def sortino_ratio(series, risk_free_rate=0.03, target_return=0, frequency=252):
     return excess / downside_vol if downside_vol > 0 else 0
 
 
-def cumulative_returns(obj, log_returns=False):
+def cumulative_returns(
+    obj: pd.Series | pd.DataFrame, 
+    log_returns: bool = False
+) -> pd.Series | pd.DataFrame:
     """
     Cumulative (compounded) returns from a return series or DataFrame.
 
@@ -151,7 +167,10 @@ def cumulative_returns(obj, log_returns=False):
     return (1 + obj).cumprod()
 
 
-def drawdown(obj, from_returns=False):
+def drawdown(
+    obj: pd.Series | pd.DataFrame, 
+    from_returns: bool = False
+) -> pd.Series | pd.DataFrame:
     """
     Drawdown series from prices or cumulative returns (Series or DataFrame).
 
@@ -186,7 +205,10 @@ def drawdown(obj, from_returns=False):
     return (level - running_max) / running_max
 
 
-def max_drawdown(obj, from_returns=False):
+def max_drawdown(
+    obj: pd.Series | pd.DataFrame, 
+    from_returns: bool = False
+) -> float | pd.Series:
     """
     Maximum drawdown from prices or cumulative returns (Series or DataFrame).
 
@@ -208,7 +230,12 @@ def max_drawdown(obj, from_returns=False):
     return dd.min()
 
 
-def rolling_volatility(obj, window=20, annualized=True, frequency=252):
+def rolling_volatility(
+    obj: pd.Series | pd.DataFrame, 
+    window: int = 20, 
+    annualized: bool = True, 
+    frequency: int = 252
+) -> pd.Series | pd.DataFrame:
     """
     Rolling volatility of returns (Series or DataFrame).
 

@@ -12,6 +12,7 @@ Examples
 >>> weights = df_prices.finance.black_litterman_weights(post_ret, post_cov)
 """
 
+import numpy as np
 import pandas as pd
 
 from ..utils import (
@@ -34,7 +35,7 @@ class DataFrameFinanceAccessor:
     def __init__(self, pandas_obj):
         self._obj = pandas_obj
 
-    def returns(self, log_returns=False, returns_data=False):
+    def returns(self, log_returns: bool = False, returns_data: bool = False) -> pd.DataFrame:
         """
         Calculate returns from price data.
 
@@ -56,7 +57,7 @@ class DataFrameFinanceAccessor:
             return self._obj
         return to_returns(self._obj, log_returns=log_returns)
 
-    def correlation(self, returns_data=False, **kwargs):
+    def correlation(self, returns_data: bool = False, **kwargs) -> pd.DataFrame:
         """
         Correlation matrix of returns.
 
@@ -77,7 +78,7 @@ class DataFrameFinanceAccessor:
         ret = self.returns(returns_data=returns_data)
         return ret.corr(**kwargs)
 
-    def cumulative_returns(self, log_returns=False, returns_data=False):
+    def cumulative_returns(self, log_returns: bool = False, returns_data: bool = False) -> pd.DataFrame:
         """
         Cumulative (compounded) return index for each column.
 
@@ -98,7 +99,7 @@ class DataFrameFinanceAccessor:
         ret = self.returns(log_returns=log_returns, returns_data=returns_data)
         return risk_metrics.cumulative_returns(ret, log_returns=log_returns)
 
-    def drawdown(self, returns_data=False):
+    def drawdown(self, returns_data: bool = False) -> pd.DataFrame:
         """
         Drawdown series for each column (from prices or cumulative returns).
 
@@ -116,7 +117,7 @@ class DataFrameFinanceAccessor:
         """
         return risk_metrics.drawdown(self._obj, from_returns=returns_data)
 
-    def max_drawdown(self, returns_data=False):
+    def max_drawdown(self, returns_data: bool = False) -> pd.Series:
         """
         Maximum drawdown per column.
 
@@ -134,7 +135,7 @@ class DataFrameFinanceAccessor:
         """
         return risk_metrics.max_drawdown(self._obj, from_returns=returns_data)
 
-    def rolling_volatility(self, window=20, annualized=True, frequency=252, returns_data=False):
+    def rolling_volatility(self, window: int = 20, annualized: bool = True, frequency: int = 252, returns_data: bool = False) -> pd.DataFrame:
         """
         Rolling volatility for each column.
 
@@ -159,7 +160,7 @@ class DataFrameFinanceAccessor:
         ret = self.returns(returns_data=returns_data)
         return risk_metrics.rolling_volatility(ret, window=window, annualized=annualized, frequency=frequency)
 
-    def covariance(self, returns_data=False, **kwargs):
+    def covariance(self, returns_data: bool = False, **kwargs) -> pd.DataFrame:
         """
         Calculate covariance matrix from prices or returns.
 
@@ -180,7 +181,7 @@ class DataFrameFinanceAccessor:
         ret = self.returns(returns_data=returns_data)
         return ret.cov(**kwargs)
 
-    def expected_returns(self, method="mean_historical", returns_data=False, **kwargs):
+    def expected_returns(self, method: str = "mean_historical", returns_data: bool = False, **kwargs) -> pd.Series:
         """
         Estimate expected returns using various methods.
 
@@ -208,7 +209,7 @@ class DataFrameFinanceAccessor:
         else:
             raise ValueError(f"Unknown method: {method}")
 
-    def annualized_return(self, frequency=252, returns_data=False):
+    def annualized_return(self, frequency: int = 252, returns_data: bool = False) -> pd.Series:
         """
         Annualized return per column.
 
@@ -217,7 +218,7 @@ class DataFrameFinanceAccessor:
         ret = self.returns(returns_data=returns_data)
         return risk_metrics.annualized_return(ret, frequency=frequency)
 
-    def volatility(self, annualized=True, frequency=252, returns_data=False):
+    def volatility(self, annualized: bool = True, frequency: int = 252, returns_data: bool = False) -> pd.Series:
         """
         Volatility per column.
 
@@ -226,7 +227,7 @@ class DataFrameFinanceAccessor:
         ret = self.returns(returns_data=returns_data)
         return risk_metrics.annualized_volatility(ret, annualized=annualized, frequency=frequency)
 
-    def sharpe_ratio(self, risk_free_rate=0.03, frequency=252, returns_data=False):
+    def sharpe_ratio(self, risk_free_rate: float = 0.03, frequency: int = 252, returns_data: bool = False) -> pd.Series:
         """
         Sharpe ratio per column.
 
@@ -235,7 +236,7 @@ class DataFrameFinanceAccessor:
         ret = self.returns(returns_data=returns_data)
         return risk_metrics.sharpe_ratio(ret, risk_free_rate=risk_free_rate, frequency=frequency)
 
-    def sortino_ratio(self, risk_free_rate=0.03, target_return=0, frequency=252, returns_data=False):
+    def sortino_ratio(self, risk_free_rate: float = 0.03, target_return: float = 0, frequency: int = 252, returns_data: bool = False) -> pd.Series:
         """
         Sortino ratio per column.
 
