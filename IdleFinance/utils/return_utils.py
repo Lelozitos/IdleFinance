@@ -19,12 +19,13 @@ Functions
 import warnings
 import numpy as np
 import pandas as pd
+from ..core._types import Union, Optional, ReturnsMethod, PriceData, NumericOutput, FinancialOutput
 
 
 def to_returns(
-    prices: pd.Series | pd.DataFrame, 
+    prices: PriceData, 
     log_returns: bool = False
-) -> pd.Series | pd.DataFrame:
+) -> FinancialOutput:
     """
     Compute period-on-period returns from prices (DataFrame or Series).
 
@@ -60,12 +61,12 @@ def to_returns(
 
 
 def historical_mean(
-    prices: pd.DataFrame | pd.Series | np.ndarray, 
+    prices: PriceData, 
     returns_data: bool = False, 
     compounding: bool = True, 
     frequency: int = 252, 
     log_returns: bool = False
-) -> pd.Series | float:
+) -> NumericOutput:
     """
     Calculate annualized mean historical return.
 
@@ -106,13 +107,13 @@ def historical_mean(
 
 
 def ewma_return(
-    prices: pd.DataFrame | pd.Series | np.ndarray,
+    prices: PriceData,
     returns_data: bool = False,
     compounding: bool = True,
     span: int = 500,
     frequency: int = 252,
     log_returns: bool = False,
-) -> pd.Series | float:
+) -> NumericOutput:
     """
     Calculate exponentially-weighted moving average of historical returns.
 
@@ -156,14 +157,14 @@ def ewma_return(
 
 
 def capm_return(
-    prices: pd.DataFrame | pd.Series | np.ndarray,
-    market_prices: pd.Series | pd.DataFrame | None = None,
+    prices: PriceData,
+    market_prices: Optional[PriceData] = None,
     returns_data: bool = False,
     risk_free_rate: float = 0.0,
     compounding: bool = True,
     frequency: int = 252,
     log_returns: bool = False,
-) -> pd.Series | float:
+) -> NumericOutput:
     r"""
     Estimate returns using CAPM.
 

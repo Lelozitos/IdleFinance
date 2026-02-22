@@ -6,7 +6,7 @@ from .utils import (
 )
 from .models.risk_metrics import sharpe_ratio
 from .utils.basic import Finance
-from . import core
+from .core.accessor import DataFrameFinanceAccessor, SeriesFinanceAccessor
 
 future_value = Finance.future_value
 fv = future_value
@@ -48,4 +48,6 @@ __all__ = [
     "annuity_payment",
     "pmt",
     "loan_payment",
+    "DataFrameFinanceAccessor",
+    "SeriesFinanceAccessor",
 ]

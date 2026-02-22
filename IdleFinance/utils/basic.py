@@ -5,9 +5,9 @@ Fundamental formulas for TVM, NPV/IRR, and loans. Accepts array-like
 or pd.Series for cashflow arguments.
 """
 
-from asyncio import futures
 import numpy as np
 import pandas as pd
+from ..core._types import Union, List, Optional, Any, ArrayLike
 
 class Finance:
     """
@@ -35,7 +35,7 @@ class Finance:
         return future_value / (1 + rate / n) ** (n * time)
 
     @staticmethod
-    def net_present_value(cashflows: list[float] | np.ndarray | pd.Series, rate: float) -> float:
+    def net_present_value(cashflows: ArrayLike, rate: float) -> float:
         """
         Net present value of a stream of cashflows.
 
@@ -47,7 +47,7 @@ class Finance:
 
     @staticmethod
     def internal_rate_of_return(
-        cashflows: list[float] | np.ndarray | pd.Series, 
+        cashflows: ArrayLike, 
         guess: float = 0.1, 
         max_iter: int = 100, 
         tol: float = 1e-6
@@ -74,7 +74,7 @@ class Finance:
         return r
 
     @staticmethod
-    def payback_period(cashflows: list[float] | np.ndarray | pd.Series) -> float:
+    def payback_period(cashflows: ArrayLike) -> float:
         """
         Payback period in number of periods (with linear interpolation).
 
@@ -100,7 +100,7 @@ class Finance:
         return (idx - 1) + frac
 
     @staticmethod
-    def profitability_index(cashflows: list[float] | np.ndarray | pd.Series, rate: float) -> float:
+    def profitability_index(cashflows: ArrayLike, rate: float) -> float:
         """
         Profitability index: PV of future cashflows / |initial investment|.
 
@@ -146,7 +146,7 @@ class Finance:
         return principal * (1 + rate * time)
 
     @staticmethod
-    def annuity_payment(present_value: float, rate: float, periods: int | float) -> float:
+    def annuity_payment(present_value: float, rate: float, periods: Union[int, float]) -> float:
         """
         Fixed payment per period for an ordinary annuity.
 
@@ -158,7 +158,7 @@ class Finance:
         return present_value * (rate * (1 + rate) ** periods) / ((1 + rate) ** periods - 1)
 
     @staticmethod
-    def loan_payment(principal: float, rate: float, periods: int | float) -> float:
+    def loan_payment(principal: float, rate: float, periods: Union[int, float]) -> float:
         """
         Fixed payment per period for an amortizing loan.
 
@@ -168,7 +168,7 @@ class Finance:
         return Finance.annuity_payment(principal, rate, periods)
 
     @staticmethod
-    def _as_cashflows(cashflows: list[float] | np.ndarray | pd.Series) -> np.ndarray:
+    def _as_cashflows(cashflows: ArrayLike) -> np.ndarray:
         """Normalize cashflows to a 1D numpy array (for NPV/IRR/payback)."""
         if hasattr(cashflows, "values"):
             return np.asarray(cashflows.values).ravel()

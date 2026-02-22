@@ -7,9 +7,10 @@ using explicit mathematical naming conventions.
 
 import numpy as np
 import pandas as pd
+from ..core._types import NumericOutput, FinancialOutput, PriceData
 
 
-def annualized_return(series: pd.Series | pd.DataFrame, frequency: int = 252) -> float | pd.Series:
+def annualized_return(series: PriceData, frequency: int = 252) -> NumericOutput:
     """
     Calculate annualized return from daily returns.
 
@@ -31,10 +32,10 @@ def annualized_return(series: pd.Series | pd.DataFrame, frequency: int = 252) ->
 
 
 def annualized_volatility(
-    series: pd.Series | pd.DataFrame, 
+    series: PriceData, 
     annualized: bool = True, 
     frequency: int = 252
-) -> float | pd.Series:
+) -> NumericOutput:
     """
     Calculate volatility (standard deviation of returns).
 
@@ -61,10 +62,10 @@ def annualized_volatility(
 
 
 def sharpe_ratio(
-    series: pd.Series | pd.DataFrame, 
+    series: PriceData, 
     risk_free_rate: float = 0.03, 
     frequency: int = 252
-) -> float | pd.Series:
+) -> NumericOutput:
     """
     Calculate Sharpe Ratio (excess return per unit of risk).
 
@@ -92,11 +93,11 @@ def sharpe_ratio(
 
 
 def sortino_ratio(
-    series: pd.Series | pd.DataFrame, 
+    series: PriceData, 
     risk_free_rate: float = 0.03, 
     target_return: float = 0.0, 
     frequency: int = 252
-) -> float | pd.Series:
+) -> NumericOutput:
     """
     Calculate Sortino Ratio (excess return per unit of downside risk).
 
@@ -136,9 +137,9 @@ def sortino_ratio(
 
 
 def cumulative_returns(
-    obj: pd.Series | pd.DataFrame, 
+    obj: PriceData, 
     log_returns: bool = False
-) -> pd.Series | pd.DataFrame:
+) -> FinancialOutput:
     """
     Cumulative (compounded) returns from a return series or DataFrame.
 
@@ -168,9 +169,9 @@ def cumulative_returns(
 
 
 def drawdown(
-    obj: pd.Series | pd.DataFrame, 
+    obj: PriceData, 
     from_returns: bool = False
-) -> pd.Series | pd.DataFrame:
+) -> FinancialOutput:
     """
     Drawdown series from prices or cumulative returns (Series or DataFrame).
 
@@ -206,9 +207,9 @@ def drawdown(
 
 
 def max_drawdown(
-    obj: pd.Series | pd.DataFrame, 
+    obj: PriceData, 
     from_returns: bool = False
-) -> float | pd.Series:
+) -> NumericOutput:
     """
     Maximum drawdown from prices or cumulative returns (Series or DataFrame).
 
@@ -231,11 +232,11 @@ def max_drawdown(
 
 
 def rolling_volatility(
-    obj: pd.Series | pd.DataFrame, 
+    obj: PriceData, 
     window: int = 20, 
     annualized: bool = True, 
     frequency: int = 252
-) -> pd.Series | pd.DataFrame:
+) -> FinancialOutput:
     """
     Rolling volatility of returns (Series or DataFrame).
 

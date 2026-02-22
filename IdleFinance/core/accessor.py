@@ -14,6 +14,13 @@ Examples
 
 import numpy as np
 import pandas as pd
+from ._types import (
+    Any, Optional, Tuple, List, Dict, Union,
+    OmegaMethod, TauMethod, CovarianceMethod, ReturnsMethod, ObjectiveType, 
+    ArrayLike, MatrixLike, PriceData, BLFullOutput, Weights,
+    NumericOutput, FinancialOutput, PortfolioBounds, PortfolioConstraints,
+    ViewData, BLResult, BLSingleResult
+)
 
 from ..utils import (
     to_returns,
@@ -57,7 +64,7 @@ class DataFrameFinanceAccessor:
             return self._obj
         return to_returns(self._obj, log_returns=log_returns)
 
-    def correlation(self, returns_data: bool = False, **kwargs) -> pd.DataFrame:
+    def correlation(self, returns_data: bool = False, **kwargs: Any) -> pd.DataFrame:
         """
         Correlation matrix of returns.
 
@@ -160,7 +167,7 @@ class DataFrameFinanceAccessor:
         ret = self.returns(returns_data=returns_data)
         return risk_metrics.rolling_volatility(ret, window=window, annualized=annualized, frequency=frequency)
 
-    def covariance(self, returns_data: bool = False, method: str = "sample", **kwargs) -> pd.DataFrame:
+    def covariance(self, returns_data: bool = False, method: CovarianceMethod = "sample", **kwargs: Any) -> pd.DataFrame:
         """
         Calculate covariance matrix from prices or returns using specific method.
 
@@ -168,7 +175,7 @@ class DataFrameFinanceAccessor:
         """
         return covariances.covariance(self._obj, method=method, returns_data=returns_data, **kwargs)
 
-    def expected_returns(self, method: str = "mean_historical", returns_data: bool = False, **kwargs) -> pd.Series:
+    def expected_returns(self, method: ReturnsMethod = "mean_historical", returns_data: bool = False, **kwargs: Any) -> pd.Series:
         """
         Estimate expected returns using various methods.
 
@@ -223,7 +230,7 @@ class DataFrameFinanceAccessor:
         ret = self.returns(returns_data=returns_data)
         return risk_metrics.sharpe_ratio(ret, risk_free_rate=risk_free_rate, frequency=frequency)
 
-    def sortino_ratio(self, risk_free_rate: float = 0.03, target_return: float = 0, frequency: int = 252, returns_data: bool = False) -> pd.Series:
+    def sortino_ratio(self, risk_free_rate: float = 0.03, target_return: float = 0, frequency: int = 252, returns_data: bool = False) -> Weights:
         """
         Sortino ratio per column.
 
@@ -246,46 +253,181 @@ class SeriesFinanceAccessor:
     def __init__(self, pandas_obj):
         self._obj = pandas_obj
 
-    def black_litterman(self, prior_return=None, view=None, view_confidence=0.5, tau=0.05, risk_aversion=1.0):
+    def black_litterman(
+        self, 
+        prior_return: Optional[float] = None, 
+        view: Optional[float] = None, 
+        view_confidence: float = 0.5, 
+        tau: float = 0.05, 
+        risk_aversion: float = 1.0
+    ) -> BLSingleResult:
         """
-        Single-asset BL distribution. 
-        Returns: (posterior_return, posterior_variance, optimal_weight)
+        Apply Black-Litterman optimization for a single asset with a single view.
+
+        Returns
+        -------
+        (float, float, float)
+            Posterior Expected Return, Posterior Variance, Optimal Weight.
         """
         return black_litterman.black_litterman_single_asset(
             self._obj, prior_return, view, view_confidence, tau, risk_aversion
         )
 
-    def returns(self, log_returns=False, returns_data=False):
-        """Returns from price series. Formula: r_t = (P_t - P_{t-1})/P_{t-1} or ln(P_t/P_{t-1}). Pass returns_data=True for pass-through."""
+    def returns(self, log_returns: bool = False, returns_data: bool = False) -> pd.Series:
+        """
+        Calculate returns from price series.
+
+        Formula (simple): r_t = (P_t - P_{t-1}) / P_{t-1};  (log): r_t = ln(P_t / P_{t-1}).
+
+        Parameters
+        ----------
+        log_returns : bool, default False
+            If True, compute log returns.
+        returns_data : bool, default False
+            If True, assume input is already returns.
+
+        Returns
+        -------
+        pd.Series
+            Returns series.
+        """
         if returns_data:
             return self._obj
         return to_returns(self._obj, log_returns=log_returns)
 
-    def cumulative_returns(self, log_returns=False, returns_data=False):
-        """Cumulative return index. Formula: Cum_t = Π_{s≤t}(1+r_s) or exp(Σ r_s). Use returns_data=True if input is already returns."""
+    def cumulative_returns(self, log_returns: bool = False, returns_data: bool = False) -> pd.Series:
+        """
+        Cumulative (compounded) return index.
+
+        Formula (simple): Cum_t = Π_{s≤t}(1 + r_s);  (log): Cum_t = exp(Σ_{s≤t} r_s).
+
+        Parameters
+        ----------
+        log_returns : bool, default False
+            If True, treat/compute log returns.
+        returns_data : bool, default False
+            If True, assume input is returns.
+
+        Returns
+        -------
+        pd.Series
+            Cumulative return index (1 = start).
+        """
         ret = self.returns(log_returns=log_returns, returns_data=returns_data)
         return risk_metrics.cumulative_returns(ret, log_returns=log_returns)
 
-    def drawdown(self, from_returns=False):
-        """Drawdown series. Formula: DD_t = (Cum_t - Peak_t)/Peak_t. Set from_returns=True if input is cumulative return index."""
+    def drawdown(self, from_returns: bool = False) -> pd.Series:
+        """
+        Drawdown series.
+
+        Formula: DD_t = (Cum_t - Peak_t) / Peak_t,  Peak_t = max_{s≤t} Cum_s.
+
+        Parameters
+        ----------
+        from_returns : bool, default False
+            If True, assume input is cumulative return index; otherwise prices.
+
+        Returns
+        -------
+        pd.Series
+            Drawdown (0 at peak, negative below).
+        """
         return risk_metrics.drawdown(self._obj, from_returns=from_returns)
 
-    def max_drawdown(self, from_returns=False):
-        """Maximum drawdown. Formula: MDD = min_t DD_t. Set from_returns=True if input is cumulative return index."""
+    def max_drawdown(self, from_returns: bool = False) -> float:
+        """
+        Maximum drawdown over the timeframe.
+
+        Formula: MDD = min_t DD_t.
+
+        Parameters
+        ----------
+        from_returns : bool, default False
+            If True, assume input is cumulative return index; otherwise prices.
+
+        Returns
+        -------
+        float
+            Maximum drawdown (negative).
+        """
         return risk_metrics.max_drawdown(self._obj, from_returns=from_returns)
 
-    def annualized_return(self, frequency=252):
-        """Annualized return. Formula: R_annual = (1 + μ)^frequency - 1."""
+    def annualized_return(self, frequency: int = 252) -> float:
+        """
+        Annualized return.
+
+        Formula: R_annual = (1 + μ)^frequency - 1.
+
+        Parameters
+        ----------
+        frequency : int, default 252
+            Trading periods per year.
+
+        Returns
+        -------
+        float
+            Annualized return.
+        """
         return risk_metrics.annualized_return(self._obj, frequency)
 
-    def volatility(self, annualized=True, frequency=252):
-        """Volatility. Formula: σ_annual = σ_period × √frequency."""
+    def volatility(self, annualized: bool = True, frequency: int = 252) -> float:
+        """
+        Volatility (standard deviation of returns).
+
+        Formula: σ_annual = σ_period × √frequency.
+
+        Parameters
+        ----------
+        annualized : bool, default True
+            If True, annualize the result.
+        frequency : int, default 252
+            Trading periods per year.
+
+        Returns
+        -------
+        float
+            Volatility.
+        """
         return risk_metrics.annualized_volatility(self._obj, annualized, frequency)
 
-    def sharpe_ratio(self, risk_free_rate=0.03, frequency=252):
-        """Sharpe ratio. Formula: SR = (E[R] - R_f) / σ (annualized)."""
+    def sharpe_ratio(self, risk_free_rate: float = 0.03, frequency: int = 252) -> float:
+        """
+        Sharpe ratio (excess return per unit of risk).
+
+        Formula: SR = (E[R] - R_f) / σ (annualized).
+
+        Parameters
+        ----------
+        risk_free_rate : float, default 0.03
+            Annual risk-free rate.
+        frequency : int, default 252
+            Trading periods per year.
+
+        Returns
+        -------
+        float
+            Sharpe ratio.
+        """
         return risk_metrics.sharpe_ratio(self._obj, risk_free_rate, frequency)
 
-    def sortino_ratio(self, risk_free_rate=0.03, target_return=0, frequency=252):
-        """Sortino ratio. Formula: Sortino = (E[R] - R_f) / σ_down (annualized)."""
+    def sortino_ratio(self, risk_free_rate: float = 0.03, target_return: float = 0, frequency: int = 252) -> float:
+        """
+        Sortino ratio (excess return per unit of downside risk).
+
+        Formula: Sortino = (E[R] - R_f) / σ_down (annualized).
+
+        Parameters
+        ----------
+        risk_free_rate : float, default 0.03
+            Annual risk-free rate.
+        target_return : float, default 0
+            Minimum acceptable return threshold.
+        frequency : int, default 252
+            Trading periods per year.
+
+        Returns
+        -------
+        float
+            Sortino ratio.
+        """
         return risk_metrics.sortino_ratio(self._obj, risk_free_rate, target_return, frequency)

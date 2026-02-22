@@ -9,14 +9,15 @@ covariance (EMA).
 import numpy as np
 import pandas as pd
 from ..utils.return_utils import to_returns
+from ..core._types import Union, Any, CovarianceMethod, PriceData, CovarianceMatrix
 
 def sample_covariance(
-    prices: pd.Series | pd.DataFrame | np.ndarray, 
+    prices: PriceData, 
     returns_data: bool = False, 
     log_returns: bool = False,
     annualized: bool = True,
     frequency: int = 252
-) -> pd.DataFrame:
+) -> CovarianceMatrix:
     """
     Calculate the sample covariance matrix of returns.
 
@@ -54,13 +55,13 @@ def sample_covariance(
 
 
 def exponential_covariance(
-    prices: pd.Series | pd.DataFrame | np.ndarray, 
+    prices: PriceData, 
     span: int = 180,
     returns_data: bool = False, 
     log_returns: bool = False,
     annualized: bool = True,
     frequency: int = 252
-) -> pd.DataFrame:
+) -> CovarianceMatrix:
     """
     Calculate the exponentially-weighted moving average (EWMA) covariance matrix.
 
@@ -104,11 +105,11 @@ def exponential_covariance(
 
 
 def covariance(
-    prices: pd.Series | pd.DataFrame | np.ndarray, 
-    method: str = "sample",
+    prices: PriceData, 
+    method: CovarianceMethod = "sample",
     returns_data: bool = False, 
-    **kwargs
-) -> pd.DataFrame:
+    **kwargs: Any
+) -> CovarianceMatrix:
     """
     Calculate a covariance matrix using the specified method.
 
