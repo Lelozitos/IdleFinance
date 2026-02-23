@@ -19,7 +19,7 @@ from ._types import (
     OmegaMethod, TauMethod, CovarianceMethod, ReturnsMethod, ObjectiveType, 
     ArrayLike, MatrixLike, PriceData, BLFullOutput, Weights,
     NumericOutput, FinancialOutput, PortfolioBounds, PortfolioConstraints,
-    ViewData, BLResult, BLSingleResult
+    ViewData, BLResult, BLSingleResult, VectorOutput
 )
 
 from ..utils import (
@@ -230,6 +230,23 @@ class DataFrameFinanceAccessor:
         ret = self.returns(returns_data=returns_data)
         return risk_metrics.sharpe_ratio(ret, risk_free_rate=risk_free_rate, frequency=frequency)
 
+    def risk_aversion(self, risk_free_rate: float = 0.02, frequency: int = 252) -> float:
+        """
+        Market-implied risk aversion parameter (lambda).
+        
+        Formula: λ = (E[R_m] - R_f) / σ_m²
+        """
+        return risk_metrics.market_risk_aversion(self._obj, risk_free_rate=risk_free_rate, frequency=frequency)
+
+    def market_prior_returns(self, market_weights: ArrayLike, risk_aversion: float, cov_method: str = "sample", **kwargs) -> VectorOutput:
+        """
+        Calculate the implied equilibrium returns (Π) given market weights.
+        
+        Formula: Π = λ * Σ * w_mkt
+        """
+        cov_matrix = self.covariance(method=cov_method, **kwargs)
+        return black_litterman.market_prior_returns(market_weights, risk_aversion, cov_matrix)
+
     def sortino_ratio(self, risk_free_rate: float = 0.03, target_return: float = 0, frequency: int = 252, returns_data: bool = False) -> Weights:
         """
         Sortino ratio per column.
@@ -239,6 +256,94 @@ class DataFrameFinanceAccessor:
         ret = self.returns(returns_data=returns_data)
         return risk_metrics.sortino_ratio(
             ret, risk_free_rate=risk_free_rate, target_return=target_return, frequency=frequency
+        )
+
+    def black_litterman(
+        self,
+        prior_returns: Optional[ArrayLike] = None,
+        views: Optional[ViewData] = None,
+        view_confidences: Optional[ArrayLike] = None,
+        tau: Optional[float] = None,
+        tau_method: TauMethod = "default",
+        omega_method: OmegaMethod = "idzorek",
+        risk_aversion: float = 1.0,
+        cov_matrix: Optional[pd.DataFrame] = None,
+        cov_method: CovarianceMethod = "sample",
+        bounds: PortfolioBounds = None,
+        objective: ObjectiveType = "utility",
+        benchmark_weights: Optional[ArrayLike] = None,
+        custom_constraints: PortfolioConstraints = None,
+    ) -> BLFullOutput:
+        """
+        Perform Black-Litterman optimization to obtain posterior expected returns, covariance, and optimal weights.
+
+        Parameters
+        ----------
+        prior_returns : pd.Series or np.ndarray, optional
+            Prior return estimates. If None, uses equal-weighted.
+        views : dict or pd.Series, optional
+            Absolute views, e.g., {'AAPL': 0.15, 'GOOGL': 0.10}
+        view_confidences : array-like, optional
+            Confidence levels (0-1) for each view.
+        tau : float, default 0.05
+            Scaling factor for prior uncertainty.
+        risk_aversion : float, default 1.0
+            Risk aversion parameter to compute optimal weights.
+        cov_matrix : pd.DataFrame, optional
+            Covariance matrix. If None, computes it from the timeframe history.
+
+        Returns
+        -------
+        (pd.Series, pd.DataFrame, pd.Series)
+            Posterior expected returns, posterior covariance matrix, and optimal weights.
+        """
+        if cov_matrix is None:
+            cov_matrix = self.covariance(method=cov_method)
+            
+        post_ret, post_cov = black_litterman.bl_posterior_distribution(
+            cov_matrix,
+            prior_returns=prior_returns,
+            views=views,
+            view_confidences=view_confidences,
+            tau_val=tau,
+            tau_method=tau_method,
+            omega_method=omega_method,
+            prices=self._obj,
+        )
+        
+        weights = black_litterman.compute_bl_weights(
+            post_ret, 
+            post_cov, 
+            risk_aversion=risk_aversion,
+            bounds=bounds,
+            objective=objective,
+            benchmark_weights=benchmark_weights,
+            custom_constraints=custom_constraints
+        )
+        
+        return post_ret, post_cov, weights
+
+    def black_litterman_weights(
+        self, 
+        posterior_returns: ArrayLike, 
+        posterior_cov: MatrixLike, 
+        risk_aversion: float = 1.0,
+        bounds: PortfolioBounds = None,
+        objective: ObjectiveType = "utility",
+        benchmark_weights: Optional[ArrayLike] = None,
+        custom_constraints: PortfolioConstraints = None,
+    ) -> Weights:
+        """
+        Compute optimal portfolio weights using the posterior distribution from Black-Litterman.
+        """
+        return black_litterman.compute_bl_weights(
+            posterior_returns, 
+            posterior_cov, 
+            risk_aversion=risk_aversion,
+            bounds=bounds,
+            objective=objective,
+            benchmark_weights=benchmark_weights,
+            custom_constraints=custom_constraints
         )
 
 
@@ -409,6 +514,14 @@ class SeriesFinanceAccessor:
             Sharpe ratio.
         """
         return risk_metrics.sharpe_ratio(self._obj, risk_free_rate, frequency)
+
+    def risk_aversion(self, risk_free_rate: float = 0.02, frequency: int = 252) -> float:
+        """
+        Market-implied risk aversion parameter (lambda).
+        
+        Formula: λ = (E[R_m] - R_f) / σ_m²
+        """
+        return risk_metrics.market_risk_aversion(self._obj, risk_free_rate=risk_free_rate, frequency=frequency)
 
     def sortino_ratio(self, risk_free_rate: float = 0.03, target_return: float = 0, frequency: int = 252) -> float:
         """
