@@ -4,7 +4,7 @@ from .utils import (
     ewma_return,
     capm_return,
 )
-from .models.risk_metrics import sharpe_ratio
+from .models.risk_metrics import sharpe_ratio, market_risk_aversion
 from .utils.basic import Finance
 from .core.accessor import DataFrameFinanceAccessor, SeriesFinanceAccessor
 
@@ -31,6 +31,7 @@ __all__ = [
     "ewma_return",
     "capm_return",
     "sharpe_ratio",
+    "market_risk_aversion",
     "Finance",
     "future_value",
     "fv",

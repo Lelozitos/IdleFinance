@@ -10,6 +10,42 @@ import pandas as pd
 from ..core._types import NumericOutput, FinancialOutput, PriceData
 
 
+def market_risk_aversion(
+    market_prices: PriceData, 
+    risk_free_rate: float = 0.02, 
+    frequency: int = 252
+) -> float:
+    """
+    Calculate the market-implied risk aversion parameter (lambda).
+    
+    This parameter represents the "Market Price of Risk" and is used to 
+    reverse-engineer expected returns from market weights in Mean-Variance 
+    frameworks like Black-Litterman.
+    
+    Formula: λ = (E[R_m] - R_f) / σ_m²
+    
+    Parameters
+    ----------
+    market_prices : pd.Series, pd.DataFrame or np.ndarray
+        Historical prices for a broad market index (e.g., S&P 500).
+    risk_free_rate : float, default 0.02
+        Annualized risk-free rate.
+    frequency : int, default 252
+        Trading periods per year.
+        
+    Returns
+    -------
+    float
+        The market-implied risk aversion coefficient.
+    """
+    from ..utils.return_utils import to_returns
+    returns = to_returns(market_prices, log_returns=True)
+    mkt_ret = returns.mean() * frequency
+    # mkt_ret = (1 + returns.mean())**frequency - 1
+    mkt_var = returns.var() * frequency
+    return (mkt_ret - risk_free_rate) / mkt_var
+
+
 def annualized_return(series: PriceData, frequency: int = 252) -> NumericOutput:
     """
     Calculate annualized return from daily returns.
@@ -143,7 +179,7 @@ def cumulative_returns(
     """
     Cumulative (compounded) returns from a return series or DataFrame.
 
-    Formula (simple): Cum_t = Π_{s≤t} (1 + r_s).  Formula (log): Cum_t = exp(Σ_{s≤t} r_s).
+    Formula (simple): Cum_t = Π (1 + r_s).  Formula (log): Cum_t = exp(Σ r_s).
 
     Parameters
     ----------
