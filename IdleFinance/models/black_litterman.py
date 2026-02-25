@@ -33,16 +33,16 @@ def market_prior_returns(
     
     Parameters
     ----------
-    market_weights : pd.Series or array-like
+    market_weights : ArrayLike
         The market capitalization weights (w_mkt).
     risk_aversion : float
         The market-implied risk aversion coefficient (λ).
-    cov_matrix : pd.DataFrame or np.ndarray
+    cov_matrix : MatrixLike
         The prior covariance matrix (Σ).
         
     Returns
     -------
-    pd.Series or np.ndarray
+    VectorOutput
         The implied equilibrium returns (Π).
     """
     weights = np.asarray(market_weights).flatten()
@@ -61,9 +61,25 @@ def tau(
     """
     Calculate the uncertainty scaling factor (tau).
     
-    Methods:
-    - 'default': use a constant value (e.g., 0.05).
-    - 'variance': 1 / number of historical observations (T).
+    This factor represents the uncertainty of the prior equilibrium returns 
+    relative to the uncertainty of the views. Typical values range between 
+    0.01 and 0.05.
+
+    Parameters
+    ----------
+    prices : pd.DataFrame, optional
+        Historical price data, required if method='variance'.
+    method : TauMethod, default 'default'
+        Method to calculate tau:
+        - 'default': Uses the `constant_value`.
+        - 'variance': Uses 1 / T, where T is the number of observations.
+    constant_value : float, default 0.05
+        The fixed value for tau used in the 'default' method.
+
+    Returns
+    -------
+    float
+        The uncertainty scaling factor (τ).
     """
     if method == "default":
         return constant_value
@@ -84,9 +100,29 @@ def omega(
     """
     Calculate the uncertainty matrix (Omega) for views.
     
-    Methods:
-    - 'idzorek': Based on user confidence intervals [0, 1].
-    - 'proportional': Proportional to the variance of the prior (tau * P * Sigma * P.T).
+    Omega represents the covariance matrix of the error terms in the 
+    investor's views. It is a diagonal matrix where each entry ω_ii 
+    represents the uncertainty of view i.
+
+    Parameters
+    ----------
+    cov_matrix : MatrixLike
+        The prior covariance matrix (Σ).
+    P : np.ndarray
+        The picking matrix (K x N), mapping views to assets.
+    tau : float, default 0.05
+        Uncertainty scaling factor (τ).
+    confidences : ArrayLike, optional
+        Investor confidence levels [0, 1] for each view (required for 'idzorek').
+    method : OmegaMethod, default 'idzorek'
+        Method to calculate Omega:
+        - 'idzorek': Based on user-provided confidence levels.
+        - 'proportional': Proportional to the variance of the prior (τ * P * Σ * P.T).
+
+    Returns
+    -------
+    np.ndarray
+        The diagonal uncertainty matrix (Ω) of shape (K x K).
     """
     if method == "idzorek":
         if confidences is None:
@@ -106,23 +142,27 @@ def idzorek_confidence_to_omega(
     """
     Calculate the uncertainty matrix (Omega) from confidence levels using Idzorek's method.
 
+    Idzorek's method provides a systematic way to map investor confidence levels 
+    (from 0 to 1) to the Omega matrix, solving the calibration problem of the 
+    original Black-Litterman model.
+
     Formula: ω_k = τ * α * P_k * Σ * P_k^T  where α = (1 - C) / C.
 
     Parameters
     ----------
-    confidences : array-like
+    confidences : ArrayLike
         Confidence levels in [0, 1] for each view.
-    cov_matrix : np.ndarray or pd.DataFrame
-        Covariance matrix of asset returns.
+    cov_matrix : MatrixLike
+        Covariance matrix of asset returns (Σ).
     P : np.ndarray
-        Picking matrix.
+        Picking matrix (K x N).
     tau : float, default 0.05
-        Uncertainty scaling factor.
+        Uncertainty scaling factor (τ).
 
     Returns
     -------
     np.ndarray
-        Diagonal Omega matrix.
+        Diagonal Omega matrix (Ω).
     """
     confidences = np.asarray(confidences).flatten()
     n_views = len(confidences)
@@ -152,67 +192,71 @@ def compute_bl_weights(
     bounds: PortfolioBounds = None,
     objective: str = "utility",
     benchmark_weights: Optional[ArrayLike] = None,
-    custom_constraints: PortfolioConstraints = None
+    custom_constraints: PortfolioConstraints = None,
+    target_sum: Optional[float] = 1.0,
+    risk_free_rate: float = 0.0
 ) -> BLWeightsResult:
     r"""
     Calculate optimal portfolio weights using Markowitz Mean-Variance Utility.
 
-    This function finds the weights that maximize the expected utility:
-    U = w^T * E[R] - (λ / 2) * w^T * Σ * w
-    
-    Or minimizes tracking error variance:
-    TE = (w - w_b)^T * Σ * (w - w_b)
+    This function finds the weights that maximize the expected utility or 
+    minimize the tracking error relative to a benchmark.
+
+    Explanations:
+    - Utility: U = w^T * E[R] - (λ / 2) * w^T * Σ * w
+    - Tracking Error: TE = (w - w_b)^T * Σ * (w - w_b)
 
     Parameters
     ----------
-    posterior_returns : pd.Series or array-like
-        The posterior expected returns (E[R]) from the Black-Litterman model.
-    posterior_cov : pd.DataFrame or np.ndarray
+    posterior_returns : ArrayLike
+        The posterior expected returns (E[R]).
+    posterior_cov : MatrixLike
         The posterior covariance matrix (Σ).
     risk_aversion : float, default 1.0
-        The risk aversion coefficient (λ). Higher values lead to 
-        lower risk portfolios.
-    bounds : tuple or list of tuples, optional
-        Weight constraints for each asset. e.g., (0, 0.20) restricts 
-        allocations between 0% and 20%.
+        The risk aversion coefficient (λ).
+    bounds : PortfolioBounds, optional
+        Weight constraints for each asset.
     objective : str, default 'utility'
-        The optimization objective:
-        - 'utility': Maximize Markowitz Mean-Variance utility.
-        - 'tracking_error': Minimize variance relative to a benchmark.
-    benchmark_weights : pd.Series or array-like, optional
-        The weights of the benchmark portfolio (w_b). Required if 
-        objective='tracking_error'.
-    custom_constraints: list of dict, optional
-        Additional constraints for `scipy.optimize.minimize` (e.g., sector caps).
+        The optimization objective: 'utility' or 'tracking_error'.
+    benchmark_weights : ArrayLike, optional
+        Weights of the benchmark portfolio (w_b), required for 'tracking_error'.
+    custom_constraints: PortfolioConstraints, optional
+        Additional constraints for optimization.
 
     Returns
     -------
-    pd.Series
+    BLWeightsResult
         The optimized portfolio weights.
     """
     returns = np.asarray(posterior_returns).flatten()
     cov = np.asarray(posterior_cov)
     n_assets = len(returns)
 
-    # Fast path: Unconstrained algebraic optimization
-    if bounds is None and objective == "utility":
+    # Fast path: Unconstrained algebraic optimization (Max Utility)
+    if bounds is None and objective == "utility" and (custom_constraints is None or len(custom_constraints) == 0):
+        # The unconstrained optimal risky weights: w* = (1/lambda) * Sigma^-1 * (mu - rf * 1)
         A = risk_aversion * cov
-        b = returns
+        b = returns - risk_free_rate
         try:
             weights = solve(A, b)
         except np.linalg.LinAlgError:
-            weights = np.linalg.lstsq(A, b, rcond=None)[0]
-        
-        weights = weights / weights.sum()
+            weights = np.linalg.pinv(A) @ b
+            
+        if target_sum is not None:
+            # If a target sum is fixed, we normalize to that sum
+            weights = (weights / weights.sum()) * target_sum if weights.sum() != 0 else weights
+            
         if isinstance(posterior_returns, pd.Series):
             return pd.Series(weights, index=posterior_returns.index)
         return weights
 
     # Numerical optimization path
     def utility_obj(w):
-        port_ret = w @ returns
+        # U = w^T * (E[R] - Rf) + Rf - (lambda / 2) * w^T * Sigma * w
+        risky_ret = w @ returns
+        cash_ret = (1.0 - np.sum(w)) * risk_free_rate
         port_var = w @ cov @ w.T
-        return -(port_ret - 0.5 * risk_aversion * port_var)
+        return -(risky_ret + cash_ret - 0.5 * risk_aversion * port_var)
         
     def tracking_error_obj(w):
         if benchmark_weights is None:
@@ -223,8 +267,11 @@ def compute_bl_weights(
         
     target_obj = utility_obj if objective == "utility" else tracking_error_obj
 
-    # Full investment constraint
-    constraints = [{'type': 'eq', 'fun': lambda w: np.sum(w) - 1.0}]
+    # Constraints
+    constraints = []
+    if target_sum is not None:
+        # Fixed sum constraint (e.g., 1.0 for full investment)
+        constraints.append({'type': 'eq', 'fun': lambda w: np.sum(w) - target_sum})
     
     if custom_constraints is not None:
         constraints.extend(custom_constraints)
@@ -285,29 +332,27 @@ def bl_posterior_distribution(
 
     Parameters
     ----------
-    cov_matrix : pd.DataFrame or np.ndarray
+    cov_matrix : MatrixLike
         The prior covariance matrix of asset returns (Σ).
-    prior_returns : pd.Series or np.ndarray, optional
-        The prior equilibrium returns (Π). Often sourced from 
-        `market_implied_prior_returns`.
-    views : dict or pd.Series, optional
-        Subjective views (Q). Absolute return expectations for specific assets.
-    view_confidences : array-like, optional
+    prior_returns : ArrayLike, optional
+        The prior equilibrium returns (Π).
+    views : ViewData, optional
+        Subjective views (Q).
+    view_confidences : ArrayLike, optional
         Investor confidence levels for each view ([0, 1]).
     tau_val : float, optional
-        The uncertainty scaling factor (τ). If None, calculated via `tau_method`.
-    tau_method : str, default "default"
-        Method to estimate τ if not provided. 'default' (0.05) or 'variance'.
-    omega_method : str, default "idzorek"
-        Method to calculate the uncertainty matrix (Ω): 'idzorek' 
-        (confidence-based) or 'proportional'.
-    prices : pd.DataFrame, optional
-        Historical price data, required if `tau_method='variance'`.
+        The uncertainty scaling factor (τ).
+    tau_method : TauMethod, default "default"
+        Method to estimate τ: 'default' or 'variance'.
+    omega_method : OmegaMethod, default "idzorek"
+        Method to calculate the uncertainty matrix (Ω): 'idzorek' or 'proportional'.
+    prices : PriceData, optional
+        Historical price data, required if tau_method='variance'.
 
     Returns
     -------
     BLResult
-        A tuple containing (Posterior Returns, Posterior Covariance Matrix).
+        A tuple of (Posterior Returns, Posterior Covariance Matrix).
     """
     cov = np.asarray(cov_matrix)
     tickers = list(cov_matrix.columns) if hasattr(cov_matrix, "columns") else range(len(cov))
@@ -331,7 +376,7 @@ def bl_posterior_distribution(
 
     if views is None:
         posterior_ret = prior_ret.flatten()
-        posterior_cov = cov * (1 + tau)
+        posterior_cov = cov * (1 + tau_val)
         return (
             pd.Series(posterior_ret, index=tickers),
             pd.DataFrame(posterior_cov, index=tickers, columns=tickers)
@@ -397,11 +442,30 @@ def black_litterman_single_asset(
 ) -> BLSingleResult:
     """
     Apply Black-Litterman optimization for a single asset with a view.
+    
+    This is a simplified version of the model for a single asset where:
+    - E[R] = [1/(τ*σ²) + 1/ω]^-1 * [Π/(τ*σ²) + Q/ω]
+    - σ²_post = σ² + [1/(τ*σ²) + 1/ω]^-1
+
+    Parameters
+    ----------
+    price_series : PriceData
+        Price or return data for the asset.
+    prior_return : float, optional
+        Prior equilibrium return (Π). If None, uses historical mean.
+    view : float, optional
+        Investor's view on the return (Q).
+    view_confidence : float, default 0.5
+        Confidence in the view [0, 1].
+    tau_val : float, default 0.05
+        Uncertainty scaling factor (τ).
+    risk_aversion : float, default 1.0
+        Risk aversion coefficient (λ).
 
     Returns
     -------
-    (float, float, float)
-        Posterior Expected Return, Posterior Variance, Optimal Weight
+    BLSingleResult
+        A tuple of (Posterior Expected Return, Posterior Variance, Optimal Weight).
     """
     if price_series.empty:
         return 0.0, 0.0, 0.0
