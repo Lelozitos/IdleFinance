@@ -261,8 +261,10 @@ class DataFrameFinanceAccessor:
     def black_litterman(
         self,
         prior_returns: Optional[ArrayLike] = None,
+        market_weights: Optional[ArrayLike] = None,
         views: Optional[ViewData] = None,
         view_confidences: Optional[ArrayLike] = None,
+        relative_views: bool = False,
         tau: Optional[float] = None,
         tau_method: TauMethod = "default",
         omega_method: OmegaMethod = "idzorek",
@@ -273,54 +275,86 @@ class DataFrameFinanceAccessor:
         objective: ObjectiveType = "utility",
         benchmark_weights: Optional[ArrayLike] = None,
         custom_constraints: PortfolioConstraints = None,
+        target_sum: Optional[float] = 1.0,
+        risk_free_rate: float = 0.0,
     ) -> BLFullOutput:
         """
-        Perform Black-Litterman optimization to obtain posterior expected returns, covariance, and optimal weights.
+        Perform Black-Litterman optimization to obtain posterior returns, covariance, and weights.
 
         Parameters
         ----------
-        prior_returns : pd.Series or np.ndarray, optional
-            Prior return estimates. If None, uses equal-weighted.
-        views : dict or pd.Series, optional
-            Absolute views, e.g., {'AAPL': 0.15, 'GOOGL': 0.10}
-        view_confidences : array-like, optional
-            Confidence levels (0-1) for each view.
-        tau : float, default 0.05
-            Scaling factor for prior uncertainty.
+        prior_returns : ArrayLike, optional
+            Explicit prior equilibrium returns (Π). Mutually exclusive with
+            *market_weights* (market_weights takes precedence).
+        market_weights : ArrayLike, optional
+            Market-cap weights used to auto-compute the prior via reverse
+            optimisation (Π = λ · Σ · w_mkt).
+        views : ViewData, optional
+            Investor views. Absolute: ``{'AAPL': 0.15}``.
+            Relative (with ``relative_views=True``): ``{('AAPL', 'MSFT'): 0.03}``.
+        view_confidences : ArrayLike, optional
+            Confidence levels [0, 1] for each view.
+        relative_views : bool, default False
+            When True, view keys are (long, short) ticker pairs.
+        tau : float, optional
+            Uncertainty scaling factor τ. If None, derived via *tau_method*.
+        tau_method : TauMethod, default 'default'
+            How to compute τ when *tau* is None.
+        omega_method : OmegaMethod, default 'idzorek'
+            Method to build Ω: ``'idzorek'`` or ``'proportional'``.
         risk_aversion : float, default 1.0
-            Risk aversion parameter to compute optimal weights.
+            Risk-aversion coefficient λ.
         cov_matrix : pd.DataFrame, optional
-            Covariance matrix. If None, computes it from the timeframe history.
+            Covariance matrix. If None, computed from the DataFrame.
+        cov_method : CovarianceMethod, default 'sample'
+            Method used to compute the covariance when *cov_matrix* is None.
+        bounds : PortfolioBounds, optional
+            Weight bounds per asset.
+        objective : ObjectiveType, default 'utility'
+            ``'utility'`` or ``'tracking_error'``.
+        benchmark_weights : ArrayLike, optional
+            Benchmark weights for tracking-error objective.
+        custom_constraints : PortfolioConstraints, optional
+            Extra scipy constraint dicts.
+        target_sum : float or None, default 1.0
+            Target risky-weight sum (``None`` = unconstrained).
+        risk_free_rate : float, default 0.0
+            Risk-free rate; cash balance earns this rate.
 
         Returns
         -------
-        (pd.Series, pd.DataFrame, pd.Series)
-            Posterior expected returns, posterior covariance matrix, and optimal weights.
+        BLFullOutput
+            ``(posterior_returns, posterior_covariance, optimal_weights)``.
         """
         if cov_matrix is None:
             cov_matrix = self.covariance(method=cov_method)
-            
+
         post_ret, post_cov = black_litterman.bl_posterior_distribution(
             cov_matrix,
             prior_returns=prior_returns,
+            market_weights=market_weights,
             views=views,
             view_confidences=view_confidences,
+            relative_views=relative_views,
             tau_val=tau,
             tau_method=tau_method,
             omega_method=omega_method,
+            risk_aversion=risk_aversion,
             prices=self._obj,
         )
-        
+
         weights = black_litterman.compute_bl_weights(
-            post_ret, 
-            post_cov, 
+            post_ret,
+            post_cov,
             risk_aversion=risk_aversion,
             bounds=bounds,
             objective=objective,
             benchmark_weights=benchmark_weights,
-            custom_constraints=custom_constraints
+            custom_constraints=custom_constraints,
+            target_sum=target_sum,
+            risk_free_rate=risk_free_rate,
         )
-        
+
         return post_ret, post_cov, weights
 
     def black_litterman_weights(
@@ -332,6 +366,8 @@ class DataFrameFinanceAccessor:
         objective: ObjectiveType = "utility",
         benchmark_weights: Optional[ArrayLike] = None,
         custom_constraints: PortfolioConstraints = None,
+        target_sum: Optional[float] = 1.0,
+        risk_free_rate: float = 0.0,
     ) -> Weights:
         """
         Compute optimal portfolio weights using the posterior distribution from Black-Litterman.
@@ -343,7 +379,9 @@ class DataFrameFinanceAccessor:
             bounds=bounds,
             objective=objective,
             benchmark_weights=benchmark_weights,
-            custom_constraints=custom_constraints
+            custom_constraints=custom_constraints,
+            target_sum=target_sum,
+            risk_free_rate=risk_free_rate,
         )
 
 
@@ -359,23 +397,42 @@ class SeriesFinanceAccessor:
         self._obj = pandas_obj
 
     def black_litterman(
-        self, 
-        prior_return: Optional[float] = None, 
-        view: Optional[float] = None, 
-        view_confidence: float = 0.5, 
-        tau: float = 0.05, 
-        risk_aversion: float = 1.0
+        self,
+        prior_return: Optional[float] = None,
+        view: Optional[float] = None,
+        view_confidence: float = 0.5,
+        tau_val: float = 0.05,
+        risk_aversion: float = 1.0,
     ) -> BLSingleResult:
         """
         Apply Black-Litterman optimization for a single asset with a single view.
 
+        Parameters
+        ----------
+        prior_return : float, optional
+            Prior equilibrium return (Π). If None, uses the historical mean.
+        view : float, optional
+            Investor's view on expected return (Q). If None, returns prior
+            with inflated uncertainty.
+        view_confidence : float, default 0.5
+            Confidence in the view [0, 1].
+        tau_val : float, default 0.05
+            Uncertainty scaling factor (τ).
+        risk_aversion : float, default 1.0
+            Risk-aversion coefficient (λ).
+
         Returns
         -------
-        (float, float, float)
-            Posterior Expected Return, Posterior Variance, Optimal Weight.
+        BLSingleResult
+            ``(posterior_return, posterior_variance, optimal_weight)``.
         """
         return black_litterman.black_litterman_single_asset(
-            self._obj, prior_return, view, view_confidence, tau, risk_aversion
+            self._obj,
+            prior_return=prior_return,
+            view=view,
+            view_confidence=view_confidence,
+            tau_val=tau_val,
+            risk_aversion=risk_aversion,
         )
 
     def returns(self, log_returns: bool = False, returns_data: bool = False) -> pd.Series:
