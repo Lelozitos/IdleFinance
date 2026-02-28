@@ -46,6 +46,13 @@ def to_returns(
     -------
     pd.Series or pd.DataFrame
         Period returns (same type and index as input, first row dropped).
+
+    Examples
+    --------
+    >>> to_returns(prices_df).head(2)
+    AAPL      GOOGL     MSFT      AMZN      TSLA
+    2018-01-02  0.010433 -0.002265  0.013453  0.030983 -0.004245
+    2018-01-03 -0.004246 -0.026402 -0.002677  0.003960 -0.005393
     """
     if isinstance(prices, pd.DataFrame):
         if log_returns:
@@ -90,6 +97,16 @@ def historical_mean(
     -------
     pd.Series
         Annualized expected returns for each asset.
+
+    Examples
+    --------
+    >>> historical_mean(prices_df)
+    AAPL     0.168128
+    GOOGL    0.158499
+    MSFT    -0.080512
+    AMZN     0.359281
+    TSLA     0.283188
+    dtype: float64
     """
     if not isinstance(prices, pd.DataFrame):
         warnings.warn("prices not in a dataframe, converting", RuntimeWarning)
@@ -140,6 +157,16 @@ def ewma_return(
     -------
     pd.Series
         Annualized exponentially-weighted expected returns.
+
+    Examples
+    --------
+    >>> ewma_return(prices_df, span=100)
+    AAPL     0.142055
+    GOOGL    0.201460
+    MSFT    -0.101824
+    AMZN     0.301552
+    TSLA     0.251412
+    dtype: float64
     """
     if not isinstance(prices, pd.DataFrame):
         warnings.warn("prices not in a dataframe, converting", RuntimeWarning)
@@ -191,6 +218,16 @@ def capm_return(
     -------
     pd.Series
         Annualized CAPM return estimates for each asset.
+
+    Examples
+    --------
+    >>> capm_return(prices_df)
+    AAPL     0.170566
+    GOOGL    0.180292
+    MSFT    -0.060155
+    AMZN     0.320144
+    TSLA     0.240508
+    dtype: float64
     """
     if not isinstance(prices, pd.DataFrame):
         warnings.warn("prices not in a dataframe, converting", RuntimeWarning)

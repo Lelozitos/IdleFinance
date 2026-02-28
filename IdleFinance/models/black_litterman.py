@@ -50,6 +50,11 @@ def market_prior_returns(
     ------
     ValueError
         If *risk_aversion* ≤ 0, or if shape mismatch is detected.
+
+    Examples
+    --------
+    >>> market_prior_returns(weights=[0.6, 0.4], risk_aversion=2.5, cov_matrix=[[0.04, 0.01], [0.01, 0.05]])
+    array([0.07 , 0.065])
     """
     if risk_aversion <= 0:
         raise ValueError(f"risk_aversion must be positive, got {risk_aversion}.")
@@ -106,6 +111,11 @@ def tau(
     ValueError
         If ``method='variance'`` but *prices* is None or empty,
         or if *constant_value* ≤ 0.
+
+    Examples
+    --------
+    >>> tau(prices=df, method="variance")
+    0.003968253968253968
     """
     if method == "default":
         if constant_value <= 0:
@@ -159,6 +169,11 @@ def idzorek_confidence_to_omega(
     ------
     ValueError
         If any confidence is outside [0, 1], *tau* ≤ 0, or shapes mismatch.
+
+    Examples
+    --------
+    >>> idzorek_confidence_to_omega(confidences=[0.8], cov_matrix=[[0.04]], P=[[1]], tau=0.05)
+    array([[0.0005]])
     """
     if tau <= 0:
         raise ValueError(f"tau must be positive, got {tau}.")
@@ -224,6 +239,11 @@ def omega(
     ------
     ValueError
         If ``method='idzorek'`` and *confidences* is None, or unknown method.
+
+    Examples
+    --------
+    >>> omega(cov_matrix=[[0.04]], P=[[1]], tau=0.05, method="proportional")
+    array([[0.002]])
     """
     if method == "idzorek":
         if confidences is None:
@@ -231,7 +251,7 @@ def omega(
         return idzorek_confidence_to_omega(confidences, cov_matrix, P, tau=tau)
     elif method == "proportional":
         cov = np.asarray(cov_matrix, dtype=float)
-        var_per_view = np.einsum("ki,ij,kj->k", P, cov, P)
+        var_per_view = np.einsum("ki,ij,kj->k", P, cov, P) # (P @ cov * P).sum(axis=1)
         return np.diag(tau * var_per_view)
     else:
         raise ValueError(
@@ -301,6 +321,11 @@ def compute_bl_weights(
     ------
     ValueError
         If *risk_aversion* ≤ 0, unknown *objective*, or mismatched shapes.
+
+    Examples
+    --------
+    >>> compute_bl_weights(posterior_returns=[0.05, 0.08], posterior_cov=[[0.04, 0.01], [0.01, 0.05]], risk_aversion=3.0)
+    array([0.29824561, 0.47368421])
     """
     if risk_aversion <= 0:
         raise ValueError(f"risk_aversion must be positive, got {risk_aversion}.")
@@ -494,6 +519,10 @@ def bl_posterior_distribution(
     ------
     ValueError
         On shape mismatches, unknown tickers in views, or invalid view keys.
+
+    Examples
+    --------
+    >>> post_ret, post_cov = bl_posterior_distribution(cov_matrix=cov, prior_returns=pi, views={'AAPL': 0.15}, tau_val=0.05, omega_method="proportional")
     """
     cov = np.asarray(cov_matrix, dtype=float)
     n_assets = len(cov)
@@ -672,6 +701,11 @@ def black_litterman_single_asset(
     ------
     ValueError
         If *tau_val* or *risk_aversion* ≤ 0, or *view_confidence* ∉ [0, 1].
+
+    Examples
+    --------
+    >>> black_litterman_single_asset(price_series=prices, view=0.10, view_confidence=0.8)
+    (0.08, 0.04, 0.5)
     """
     if tau_val <= 0:
         raise ValueError(f"tau_val must be positive, got {tau_val}.")

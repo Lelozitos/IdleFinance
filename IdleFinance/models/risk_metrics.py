@@ -37,6 +37,11 @@ def market_risk_aversion(
     -------
     float
         The market-implied risk aversion coefficient.
+
+    Examples
+    --------
+    >>> market_risk_aversion(market_index_prices)
+    15.792453
     """
     from ..utils.return_utils import to_returns
     returns = to_returns(market_prices, log_returns=True)
@@ -63,6 +68,11 @@ def annualized_return(series: PriceData, frequency: int = 252) -> NumericOutput:
     -------
     float or pd.Series
         Annualized return(s).
+
+    Examples
+    --------
+    >>> annualized_return(aapl_returns)
+    0.155124
     """
     return (1 + series.mean()) ** frequency - 1
 
@@ -90,6 +100,11 @@ def annualized_volatility(
     -------
     float or pd.Series
         Volatility.
+
+    Examples
+    --------
+    >>> annualized_volatility(aapl_returns)
+    0.308745
     """
     vol = series.std()
     if annualized:
@@ -120,6 +135,11 @@ def sharpe_ratio(
     -------
     float or pd.Series
         Sharpe ratio(s).
+
+    Examples
+    --------
+    >>> sharpe_ratio(aapl_returns)
+    0.370012
     """
     excess = series.mean() * frequency - risk_free_rate
     vol = series.std() * np.sqrt(frequency)
@@ -155,6 +175,11 @@ def sortino_ratio(
     -------
     float or pd.Series
         Sortino ratio(s).
+
+    Examples
+    --------
+    >>> sortino_ratio(aapl_returns)
+    0.450123
     """
     excess = series.mean() * frequency - risk_free_rate
     
@@ -262,6 +287,11 @@ def max_drawdown(
     -------
     float or pd.Series
         Maximum drawdown (negative). Per-column for DataFrame.
+
+    Examples
+    --------
+    >>> max_drawdown(aapl_prices)
+    -0.268541
     """
     dd = drawdown(obj, from_returns=from_returns)
     return dd.min()
