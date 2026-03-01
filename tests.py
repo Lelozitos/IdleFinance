@@ -124,8 +124,24 @@ def run_custom_constraints_demo(df_prices, mean_returns):
         views={'AAPL': 0.15},
         custom_constraints=my_constraints
     )
-    print("Custom Constraints (AAPL=15%, GOOGL >= MSFT):")
-    print(w_custom.round(4))
+    print(f"Custom Constraints (AAPL=15%, GOOGL >= MSFT):\n{w_custom.round(4)}\n")
+
+def run_valuation_demo():
+    print("--- 9. Fixed Income Module ---")
+    # Fixed Income
+    print(f"Bond Price: ${idf.fixed_income.bond_price(1000, 0.05, 0.06, 10, 2):.4f}")
+    print(f"Bond YTM: {idf.fixed_income.bond_ytm(925.61, 1000, 0.05, 10, 2):.4f}")
+    print(f"Bond Duration: {idf.fixed_income.bond_duration(1000, 0.04, 0.05, 5, 2):.4f} years")
+    print(f"Bond Macaulay Duration: {idf.fixed_income.bond_macaulay_duration(1000, 0.04, 0.05, 5, 2):.4f} years")
+    print(f"Bond Modified Duration: {idf.fixed_income.bond_modified_duration(1000, 0.04, 0.05, 5, 2):.4f}")
+    print(f"Bond Convexity: {idf.fixed_income.bond_convexity(1000, 0.04, 0.05, 5, 2):.4f}")
+    print(f"Credit Spread: {idf.fixed_income.credit_spread(0.065, 0.04):.4f}")
+    
+    print(f"Zero Coupon Bond Price: ${idf.fixed_income.bond_price(100, 0.0, 0.05, 5):.4f}")
+    print(f"Zero Coupon YTM: {idf.fixed_income.bond_ytm(78.35, 100, 0.0, 5):.4f}")
+    print(f"Forward Rate (1Y to 2Y): {idf.fixed_income.forward_rate(0.03, 1.0, 0.04, 2.0):.4f}")
+    print(f"Macaulay Duration (CFs): {idf.fixed_income.macaulay_duration_from_cashflows([5, 5, 105], 0.05, 1):.4f} years\n")
+
 
 def main():
     df_prices = get_demo_data()
@@ -138,6 +154,7 @@ def main():
     run_advanced_bl_demo(df_prices)
     run_constrained_opt_demo(df_prices, mean_returns)
     run_custom_constraints_demo(df_prices, mean_returns)
+    run_valuation_demo()
 
 if __name__ == "__main__":
     main()
