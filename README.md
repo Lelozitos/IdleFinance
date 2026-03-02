@@ -1,10 +1,12 @@
 # IdleFinance
 
-IdleFinance is a powerful, lightweight Python library designed for modern financial analysis, portfolio optimization, and asset valuation. It seamlessly integrates professional financial logic with **pandas** via a dedicated `.finance` accessor, allowing you to perform complex calculations directly on your DataFrames and Series.
+**IdleFinance** reimagines quantitative finance in Python by embedding portfolio theory, risk modeling, and asset pricing tools directly into the pandas ecosystem.
+
+Rather than acting as a standalone optimizer, **IdleFinance** extends financial data structures with institutional-grade analytical capabilities through a seamless .finance accessor — transforming raw market data into a research-ready quantitative framework.
 
 ## 🚀 Key Pillars
 
-IdleFinance is built on four core modules:
+**IdleFinance** is built on four core modules:
 
 1.  **Portfolio Optimization (Black-Litterman)**:
     - Full implementation of the J. Walters & T. Idzorek models.

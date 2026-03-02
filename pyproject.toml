@@ -17,5 +17,11 @@ dependencies = [
     "scipy>=1.7.0",
     "pandas>=1.3.0",
 ]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+]
 
-[tool.setuptools]
+[project.urls]
+Homepage = "https://github.com/Lelozitos/IdleFinance"
