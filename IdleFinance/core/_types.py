@@ -15,6 +15,7 @@ TauMethod = Literal["default", "variance"]
 ObjectiveType = Literal["utility", "tracking_error"]
 CovarianceMethod = Literal["sample", "ema"]
 ReturnsMethod = Literal["mean_historical", "ema", "capm"]
+DenoiseMethod = Literal["marchenko_pastur"]
 
 # Common Type Aliases
 ArrayLike = Union[np.ndarray, pd.Series, List[float]]
