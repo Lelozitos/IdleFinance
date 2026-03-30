@@ -4,30 +4,9 @@ from .utils import (
     ewma_return,
     capm_return,
 )
-from .models import risk_metrics, covariances, fixed_income
+from .models import risk_metrics, covariances, fixed_income, efficient_frontier
 from .utils.basic import Finance
 from .core.accessor import DataFrameFinanceAccessor, SeriesFinanceAccessor
-
-# # Expose individual functions for convenience
-# gordon_growth_model = equities.gordon_growth_model
-# h_model = equities.h_model
-# dcf_valuation = equities.dcf_valuation
-# earnings_power_value = equities.earnings_power_value
-# wacc = equities.wacc
-# black_scholes_call = equities.black_scholes_call
-# black_scholes_put = equities.black_scholes_put
-# implied_volatility = equities.implied_volatility
-
-# bond_price = fixed_income.bond_price
-# bond_ytm = fixed_income.bond_ytm
-# bond_duration = fixed_income.bond_duration
-# bond_convexity = fixed_income.bond_convexity
-# credit_spread = fixed_income.credit_spread
-# forward_rate = fixed_income.forward_rate
-# macaulay_duration_from_cashflows = fixed_income.macaulay_duration_from_cashflows
-
-# sharpe_ratio = risk_metrics.sharpe_ratio
-# market_risk_aversion = risk_metrics.market_risk_aversion
 
 # Basic Financial Calculations
 future_value = Finance.future_value
@@ -52,8 +31,6 @@ __all__ = [
     "historical_mean",
     "ewma_return",
     "capm_return",
-    "sharpe_ratio",
-    "market_risk_aversion",
     "Finance",
     "future_value",
     "fv",
@@ -76,4 +53,5 @@ __all__ = [
     "fixed_income",
     "risk_metrics",
     "covariances",
+    "efficient_frontier",
 ]
