@@ -10,7 +10,6 @@ import numpy as np
 import pandas as pd
 from scipy.linalg import solve, cho_factor, cho_solve
 from scipy.optimize import minimize
-from ..utils.return_utils import to_returns
 from ..core._types import (
     Union, Optional, List, BLResult, BLWeightsResult, BLSingleResult,
     ViewData, PortfolioBounds, PortfolioConstraints,
