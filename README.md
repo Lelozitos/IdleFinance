@@ -8,20 +8,14 @@ Rather than acting as a standalone optimizer, **IdleFinance** extends financial 
 
 **IdleFinance** is built on four core modules:
 
-1.  **Portfolio Optimization (Black-Litterman)**:
-    - Full implementation of the J. Walters & T. Idzorek models.
-    - Flexible constraint handling (bounds, target sums) and objective functions (Utility vs. Tracking Error).
-    - Automated derivation of market-implied risk aversion and prior equilibrium returns.
+1.  **Portfolio Optimization**:
+    - **Black-Litterman**: Full J. Walters & T. Idzorek models with constraint handling.
+    - **Efficient Frontier**: Min-Variance, Max-Sharpe (Tangency), Target-Return portfolios.
+    - Automated market-implied risk aversion and prior equilibrium returns.
 
 2.  **Risk Metrics**:
-    - **Covariance Estimation**:
-      - **Shrinkage Estimators**: Ledoit-Wolf and Oracle Approximating Shrinkage (OAS) for robust covariance matrix estimation.
-      - **Factor Models**: Single-factor (Market) and Multi-factor (Fama-French 3/5 Factor) models for risk decomposition.
-      - **Dynamic Models**: Constant Conditional Correlation (CCC) and Orthogonal GARCH (OGARCH) for time-varying volatility and correlation.
-    - **Risk Decomposition**:
-      - **Marginal Contribution to Risk (MCTR)**: Contribution of each asset to total portfolio risk.
-      - **Component Value at Risk (CVaR)**: Risk contribution of each asset to the portfolio's Value at Risk.
-      - **Risk Decomposition**: Decomposition of portfolio risk into systematic and idiosyncratic components.
+    - **Covariance Estimation**: Sample, EMA/EWMA, and **Denoised** (Marchenko-Pastur eigenvalue clipping).
+    - **Risk Decomposition**: Marginal Contribution to Risk (MCTR), Component VaR.
 
 3.  **Fixed Income**:
     - **Unified Bond Pricing**: Automatic detection of zero-coupon vs. coupon-bearing bonds.
@@ -33,7 +27,7 @@ Rather than acting as a standalone optimizer, **IdleFinance** extends financial 
     - Standard financial math: NPV, IRR, Payback Period, Loan Payments (PMT), and more.
     - Seamless conversion between price data and return series.
 
-## ~~📦 Installation~~ (not yet available)
+## 📦 Installation
 
 ```bash
 pip install IdleFinance
@@ -56,7 +50,7 @@ print(f"Sharpe Ratio: {prices.finance.sharpe_ratio():.2f}")
 print(f"Max Drawdown: {prices.finance.max_drawdown():.2%}")
 ```
 
-### 1. Portfolio Optimization with Views
+### 2. Portfolio Optimization with Views
 
 Combine market priors with investor views using the Black-Litterman model.
 
@@ -70,7 +64,7 @@ post_ret, post_cov, weights = df_prices.finance.black_litterman(
 )
 ```
 
-### 2. Risk Decomposition
+### 3. Risk Decomposition
 
 ```python
 prices = pd.Series([100, 102, 101, 105, 107])
@@ -80,7 +74,7 @@ print(f"Sharpe Ratio: {prices.finance.sharpe_ratio():.2f}")
 print(f"Max Drawdown: {prices.finance.max_drawdown():.2%}")
 ```
 
-### 3. Comprehensive Asset Valuation
+### 4. Comprehensive Asset Valuation
 
 ```python
 ytm = idf.fixed_income.bond_ytm(price=925.61, face_value=1000, coupon_rate=0.05, years_to_maturity=10)
