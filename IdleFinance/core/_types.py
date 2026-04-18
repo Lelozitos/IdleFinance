@@ -14,8 +14,9 @@ OmegaMethod = Literal["idzorek", "proportional"]
 TauMethod = Literal["default", "variance"]
 ObjectiveType = Literal["utility", "tracking_error"]
 CovarianceMethod = Literal["sample", "ema"]
-ReturnsMethod = Literal["mean_historical", "ema", "capm"]
+ReturnsMethod = Literal["mean_historical", "ema_historical", "capm"]
 DenoiseMethod = Literal["marchenko_pastur"]
+StochasticMethod = Literal["gbm", "mean_reversion", "jump_diffusion"]
 
 # Common Type Aliases
 ArrayLike = Union[np.ndarray, pd.Series, List[float]]

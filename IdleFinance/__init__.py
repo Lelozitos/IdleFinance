@@ -4,7 +4,7 @@ from .utils import (
     ewma_return,
     capm_return,
 )
-from .models import risk_metrics, covariances, fixed_income, efficient_frontier
+from .models import risk_metrics, covariances, fixed_income, efficient_frontier, options, stochastic
 from .utils.basic import Finance
 from .core.accessor import DataFrameFinanceAccessor, SeriesFinanceAccessor
 
@@ -54,4 +54,6 @@ __all__ = [
     "risk_metrics",
     "covariances",
     "efficient_frontier",
+    "options",
+    "stochastic",
 ]

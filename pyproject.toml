@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "IdleFinance"
-version = "0.1.1"
+version = "0.2.0"
 description = "A Python library for quantitative finance and financial modeling"
 authors = [
     { name = "Leandro Fabre", email = "lm.fabre@hotmail.com" }
@@ -25,3 +25,11 @@ classifiers = [
 
 [project.urls]
 Homepage = "https://github.com/Lelozitos/IdleFinance"
+
+[project.optional-dependencies]
+excel = ["openpyxl>=3.0"]
+dev   = ["pytest>=7.0", "openpyxl>=3.0"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts   = "-v"
