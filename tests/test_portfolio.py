@@ -73,6 +73,51 @@ class TestBlackLitterman:
         )
         assert np.all(weights <= max_alloc + 1e-6)
         assert np.all(weights >= -1e-6)
+        assert abs(weights.sum() - 1.0) < 1e-6
+
+    def test_partial_allocation_rest_in_cash(self, prices):
+        # target_sum=0.8 → 80% in risky assets, 20% implicitly in cash/risk-free
+        # target_sum constrains the sum only; bounds are needed to prevent shorts
+        mu = prices.finance.expected_returns(method="mean_historical")
+        risky_alloc = 0.80
+        _, _, weights = prices.finance.black_litterman(
+            prior_returns=mu,
+            views={"AAPL": 0.15},
+            bounds=(0.0, 1.0),
+            target_sum=risky_alloc,
+        )
+        assert abs(weights.sum() - risky_alloc) < 1e-6
+        assert np.all(weights >= -1e-6)
+
+    def test_auto_optimal_allocation(self, prices):
+        # target_sum=None → optimizer determines risky exposure; weights need not sum to 1
+        mu = prices.finance.expected_returns(method="mean_historical")
+        _, _, weights = prices.finance.black_litterman(
+            prior_returns=mu,
+            views={"AAPL": 0.15},
+            target_sum=None,
+            risk_free_rate=0.04,
+        )
+        assert isinstance(weights, pd.Series)
+        assert set(weights.index) == set(prices.columns)
+        # No sum constraint — optimizer chose the allocation freely
+        assert not abs(weights.sum() - 1.0) < 1e-3
+
+    def test_short_positions_allowed(self, prices):
+        # Negative lower bound allows shorting; weights can be < 0
+        mu = prices.finance.expected_returns(method="mean_historical")
+        _, _, weights = prices.finance.black_litterman(
+            prior_returns=mu,
+            views={"AAPL": 0.15},
+            bounds=(-0.20, 0.50),
+            target_sum=1.0,
+        )
+        assert abs(weights.sum() - 1.0) < 1e-6
+        assert np.all(weights >= -0.20 - 1e-6)
+        assert np.all(weights <= 0.50 + 1e-6)
+        # With shorts allowed, at least one weight should go negative
+        # (not guaranteed in all market regimes, but true for this seed)
+        assert np.any(weights < -1e-6)
 
     def test_posterior_cov_is_positive_definite(self, prices):
         mu = prices.finance.expected_returns(method="mean_historical")
