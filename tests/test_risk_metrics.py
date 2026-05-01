@@ -38,15 +38,15 @@ class TestAnnualizedVolatility:
 
 class TestSharpeRatio:
     def test_positive_for_positive_excess_return(self, returns):
-        # With a 0% risk-free rate, positive returns → positive Sharpe
+        # seed=42 produces a generally rising market, so Sharpe > 0 at 0% rf
         sr = rm.sharpe_ratio(returns["AAPL"], risk_free_rate=0.0)
-        assert isinstance(sr, float)
+        assert isinstance(sr, float) and sr > 0
 
-    def test_zero_vol_returns_zero(self):
-        # Zero volatility edge case should not raise
+    def test_zero_vol_returns_finite(self):
+        # Zero volatility edge case should not raise or produce NaN/inf
         constant = pd.Series([0.001] * 100)
         sr = rm.sharpe_ratio(constant, risk_free_rate=0.0)
-        assert isinstance(sr, (int, float))
+        assert np.isfinite(sr)
 
 
 class TestSortinoRatio:
@@ -55,12 +55,11 @@ class TestSortinoRatio:
         assert isinstance(sr, (int, float))
 
     def test_sortino_geq_sharpe_for_right_skewed(self, returns):
-        # When returns have fat positive tails, Sortino ≥ Sharpe (downside vol < total vol)
+        # seed=42 produces positive drift; downside deviation < total vol → Sortino ≥ Sharpe
         sharpe = rm.sharpe_ratio(returns["AAPL"], risk_free_rate=0.0)
         sortino = rm.sortino_ratio(returns["AAPL"], risk_free_rate=0.0)
-        # This holds when downside deviation < total std, which is common in practice
-        # We just check they're both finite floats
         assert np.isfinite(sortino) and np.isfinite(sharpe)
+        assert sortino >= sharpe
 
 
 class TestDrawdown:
