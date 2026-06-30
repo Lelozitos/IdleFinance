@@ -234,7 +234,7 @@ def capm_return(
         prices = pd.DataFrame(prices)
 
     if returns_data:
-        returns = prices.copy()
+        returns = prices
         market_returns = None
         if market_prices is not None:
             market_returns = market_prices
@@ -246,25 +246,24 @@ def capm_return(
                 market_prices = pd.DataFrame(market_prices)
             market_returns = to_returns(market_prices, log_returns)
 
-    # Use equal-weighted proxy if no market provided
+    # Build combined frame without mutating original
     if market_returns is None:
-        returns["mkt"] = returns.mean(axis=1)
+        mkt_series = returns.mean(axis=1)
     else:
-        market_returns = market_returns.squeeze()
-        returns["mkt"] = market_returns
+        mkt_series = market_returns.squeeze()
 
-    # Calculate covariance
-    cov = returns.cov()
+    combined = returns.copy()
+    combined["mkt"] = mkt_series
+
+    cov = combined.cov()
     betas = cov["mkt"] / cov.loc["mkt", "mkt"]
     betas = betas.drop("mkt")
 
-    # Market return
     if compounding:
-        mkt_mean_ret = (1 + returns["mkt"]).prod() ** (
-            frequency / returns["mkt"].count()
+        mkt_mean_ret = (1 + combined["mkt"]).prod() ** (
+            frequency / combined["mkt"].count()
         ) - 1
     else:
-        mkt_mean_ret = returns["mkt"].mean() * frequency
+        mkt_mean_ret = combined["mkt"].mean() * frequency
 
-    # CAPM formula
     return risk_free_rate + betas * (mkt_mean_ret - risk_free_rate)
