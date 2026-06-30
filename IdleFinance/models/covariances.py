@@ -96,7 +96,9 @@ def exponential_covariance(
     else:
         returns = to_returns(prices, log_returns=log_returns)
 
-    cov = returns.ewm(span=span).cov().xs(returns.index[-1], level=0)
+    ewm_cov = returns.ewm(span=span).cov()
+    last_date = returns.index[-1]
+    cov = ewm_cov.loc[last_date]
     
     if annualized:
         cov = cov * frequency
@@ -150,7 +152,7 @@ def covariance(
     
     if denoise:
         if n_obs is None:
-            n_obs = len(prices) if not returns_data else len(prices) + 1
+            n_obs = len(prices) - 1 if not returns_data else len(prices)
         cov = denoise_covariance(cov, n_obs)
     
     return cov
