@@ -43,7 +43,8 @@ class Finance:
         CF_t is the cashflow at time t, r is the discount rate, and t is the time in periods.
         """
         cf = Finance._as_cashflows(cashflows)
-        return sum(cf[t] / (1 + rate) ** t for t in range(len(cf)))
+        t = np.arange(len(cf), dtype=float)
+        return float(np.sum(cf / (1 + rate) ** t))
 
     @staticmethod
     def internal_rate_of_return(
@@ -63,14 +64,15 @@ class Finance:
         """
         cf = Finance._as_cashflows(cashflows)
         r = guess
+        t = np.arange(len(cf), dtype=float)
         for _ in range(max_iter):
-            npv = Finance.net_present_value(cf, r)
-            dnpv_dr = sum(-i * cf[i] / (1 + r) ** (i + 1) for i in range(len(cf)))
+            npv = float(np.sum(cf / (1 + r) ** t))
+            if abs(npv) < tol:
+                break
+            dnpv_dr = -float(np.sum(t * cf / (1 + r) ** (t + 1)))
             if abs(dnpv_dr) < tol:
                 break
             r -= npv / dnpv_dr
-            if abs(npv) < tol:
-                break
         return r
 
     @staticmethod
@@ -112,7 +114,8 @@ class Finance:
         cf = Finance._as_cashflows(cashflows)
         if cf[0] >= 0:
             return np.nan
-        pv_future = sum(cf[t] / (1 + rate) ** t for t in range(1, len(cf)))
+        t = np.arange(1, len(cf), dtype=float)
+        pv_future = float(np.sum(cf[1:] / (1 + rate) ** t))
         return pv_future / abs(cf[0])
 
     @staticmethod
