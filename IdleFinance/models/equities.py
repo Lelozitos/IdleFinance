@@ -351,16 +351,18 @@ def two_stage_ddm(
     if cost_of_equity <= stable_growth_rate:
         raise ValueError("cost_of_equity must exceed stable_growth_rate.")
 
-    pv_dividends = 0.0
-    d = dividend
-    for t in range(1, int(high_growth_years) + 1):
-        d = d * (1 + high_growth_rate)
-        pv_dividends += d / (1 + cost_of_equity) ** t
+    n = int(high_growth_years)
+    t = np.arange(1, n + 1)
+    # Vectorised dividend PV: D0 * (1+g)^t / (1+r)^t
+    growth_factors = (1.0 + high_growth_rate) ** t
+    discount_factors = (1.0 + cost_of_equity) ** t
+    pv_dividends = float(np.sum(dividend * growth_factors / discount_factors))
 
     # Terminal value at end of Stage 1
-    d_terminal = d * (1 + stable_growth_rate)
+    d_last = dividend * (1.0 + high_growth_rate) ** n
+    d_terminal = d_last * (1.0 + stable_growth_rate)
     tv = d_terminal / (cost_of_equity - stable_growth_rate)
-    pv_tv = tv / (1 + cost_of_equity) ** int(high_growth_years)
+    pv_tv = tv / (1.0 + cost_of_equity) ** n
 
     return pv_dividends + pv_tv
 
@@ -412,27 +414,30 @@ def three_stage_ddm(
     if cost_of_equity <= stable_growth_rate:
         raise ValueError("cost_of_equity must exceed stable_growth_rate.")
 
-    pv = 0.0
-    d = dividend
-    t = 0
+    n1 = int(high_growth_years)
+    n2 = int(transition_years)
 
-    # Stage 1
-    for _ in range(int(high_growth_years)):
-        t += 1
-        d *= (1 + high_growth_rate)
-        pv += d / (1 + cost_of_equity) ** t
+    # Stage 1: constant high growth
+    growth_1 = np.full(n1, 1 + high_growth_rate)
 
-    # Stage 2 — linearly declining growth rate
-    for step in range(1, int(transition_years) + 1):
-        t += 1
-        g = high_growth_rate - (high_growth_rate - stable_growth_rate) * (step / transition_years)
-        d *= (1 + g)
-        pv += d / (1 + cost_of_equity) ** t
+    # Stage 2: linearly declining growth rate
+    if n2 > 0:
+        steps = np.arange(1, n2 + 1)
+        g2 = high_growth_rate - (high_growth_rate - stable_growth_rate) * (steps / n2)
+        growth_2 = 1 + g2
+    else:
+        growth_2 = np.array([])
+
+    growth_factors = np.concatenate([growth_1, growth_2])
+    d_levels = dividend * np.cumprod(growth_factors)
+    t = np.arange(1, n1 + n2 + 1)
+    pv = float(np.sum(d_levels / (1 + cost_of_equity) ** t))
 
     # Stage 3 terminal value
-    d_terminal = d * (1 + stable_growth_rate)
+    d_last = d_levels[-1] if len(d_levels) else dividend
+    d_terminal = d_last * (1 + stable_growth_rate)
     tv = d_terminal / (cost_of_equity - stable_growth_rate)
-    pv += tv / (1 + cost_of_equity) ** t
+    pv += tv / (1 + cost_of_equity) ** (n1 + n2)
 
     return pv
 
@@ -777,11 +782,12 @@ def abnormal_earnings_growth(
     dps = np.asarray(dps_projections, dtype=float)
 
     n = min(len(eps), len(dps))
-    pv_aeg = 0.0
-    for t in range(n):
-        cum_div = dps[t] * cost_of_equity          # dividends reinvested
-        aeg = eps[t] - (eps_base if t == 0 else eps[t - 1]) * (1 + cost_of_equity) - cum_div
-        pv_aeg += aeg / (1 + cost_of_equity) ** (t + 1)
+    eps_n, dps_n = eps[:n], dps[:n]
+    prev_eps = np.concatenate(([eps_base], eps_n[:-1]))
+    cum_div = dps_n * cost_of_equity           # dividends reinvested
+    aeg = eps_n - prev_eps * (1 + cost_of_equity) - cum_div
+    t = np.arange(1, n + 1)
+    pv_aeg = float(np.sum(aeg / (1 + cost_of_equity) ** t))
 
     return (eps_base + pv_aeg) / cost_of_equity
 
