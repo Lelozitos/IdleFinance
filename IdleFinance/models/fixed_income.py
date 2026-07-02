@@ -55,15 +55,18 @@ def bond_price(
         
     if coupon_rate == 0:
         return Finance.present_value(face_value, ytm, years_to_maturity, frequency)
-        
+
     periods = int(years_to_maturity * frequency)
     periodic_coupon = face_value * coupon_rate / frequency
     periodic_ytm = ytm / frequency
-    
-    cashflows = [0.0] + [periodic_coupon] * periods
-    cashflows[-1] += face_value
-    
-    return Finance.net_present_value(cashflows, periodic_ytm)
+
+    if periodic_ytm == 0:
+        return periodic_coupon * periods + face_value
+
+    # Closed-form: PV of annuity + PV of par
+    t = np.arange(1, periods + 1)
+    discount = (1.0 + periodic_ytm) ** t
+    return float(np.sum(periodic_coupon / discount) + face_value / discount[-1])
 
 
 def bond_ytm(
