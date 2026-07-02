@@ -183,19 +183,12 @@ def sortino_ratio(
     0.450123
     """
     excess = series.mean() * frequency - risk_free_rate
-    
-    # Calculate downside deviation
-    downside_returns = series.copy()
-    if isinstance(series, pd.DataFrame):
-        downside_returns[downside_returns > target_return] = 0
-    else:
-        downside_returns = downside_returns.clip(upper=target_return)
-        
-    downside_vol = downside_returns.std() * np.sqrt(frequency)
-    
+    downside = (series - target_return).clip(upper=0.0)
+    downside_vol = np.sqrt((downside ** 2).mean()) * np.sqrt(frequency)
+
     if isinstance(series, pd.DataFrame):
         return (excess / downside_vol).replace([np.inf, -np.inf], 0).fillna(0)
-    return excess / downside_vol if downside_vol > 0 else 0
+    return float(excess / downside_vol) if float(downside_vol) > 0 else 0
 
 
 def cumulative_returns(
@@ -580,7 +573,7 @@ def probabilistic_sharpe_ratio(
         kurt = float(s.kurtosis())  # excess
 
         # Variance of SR estimator
-        denom = np.sqrt(1 - skew * sr_hat + (kurt / 4) * sr_hat**2)
+        denom = np.sqrt(1 - skew * sr_hat + ((kurt + 2) / 4) * sr_hat**2)
         if denom <= 0:
             return float("nan")
 
