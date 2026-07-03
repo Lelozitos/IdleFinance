@@ -186,6 +186,7 @@ def efficient_return(
     target_return: float,
     bounds: PortfolioBounds = None,
     target_sum: float = 1.0,
+    x0: Optional[ArrayLike] = None,
 ) -> np.ndarray:
     """
     Find the minimum-variance portfolio for a given target return.
@@ -204,6 +205,10 @@ def efficient_return(
         Per-asset weight bounds.
     target_sum : float, default 1.0
         Sum constraint.
+    x0 : ArrayLike, optional
+        Initial guess for the optimizer (e.g. the solution of a nearby
+        target return, for warm-starting frontier sweeps). Defaults to
+        equal weights.
 
     Returns
     -------
@@ -215,7 +220,7 @@ def efficient_return(
     n = len(mu)
     processed_bounds = _process_bounds(bounds, n)
 
-    x0 = np.full(n, target_sum / n)
+    x0 = np.full(n, target_sum / n) if x0 is None else np.asarray(x0, dtype=float).flatten()
     constraints = [
         {"type": "eq", "fun": lambda w: w.sum() - target_sum},
         {"type": "eq", "fun": lambda w: w @ mu - target_return},
@@ -278,11 +283,8 @@ def efficient_frontier(
     w_min = min_variance(cov, bounds=bounds, target_sum=target_sum)
     ret_min = w_min @ mu
 
-    # Upper bound: max feasible return
-    # With long-only bounds, this is the return of the single best asset
-    processed_bounds = _process_bounds(bounds, len(mu))
-    hi_weights = np.array([b[1] for b in processed_bounds])
-    ret_max = mu.max()  # theoretical max with full concentration
+    # Upper bound: max feasible return (theoretical max with full concentration)
+    ret_max = mu.max()
 
     # Ensure ret_max is achievable: try optimizing for it
     try:
@@ -294,11 +296,13 @@ def efficient_frontier(
     target_returns = np.linspace(ret_min, ret_max, n_points)
 
     results = []
+    w_prev = w_min
     for target_ret in target_returns:
         try:
-            w = efficient_return(mu, cov, target_ret, bounds=bounds, target_sum=target_sum)
+            w = efficient_return(mu, cov, target_ret, bounds=bounds, target_sum=target_sum, x0=w_prev)
             p_ret, p_vol, p_sharpe = portfolio_performance(w, mu, cov, risk_free_rate)
             results.append({"Return": p_ret, "Volatility": p_vol, "Sharpe": p_sharpe})
+            w_prev = w
         except Exception:
             continue
 
