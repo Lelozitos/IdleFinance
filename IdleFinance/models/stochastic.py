@@ -55,24 +55,14 @@ def geometric_brownian_motion(
     if s0 <= 0 or sigma < 0 or dt <= 0 or n_steps <= 0:
         raise ValueError("s0, sigma, dt, and n_steps must be positive.")
 
-    if random_seed is not None:
-        np.random.seed(random_seed)
-
-    # Pre-calculate deterministic component
+    rng = np.random.default_rng(random_seed)
     drift = (mu - 0.5 * sigma**2) * dt
     diffusion = sigma * np.sqrt(dt)
-
-    # Generate shock terms
-    shocks = np.random.normal(0, 1, (n_steps, n_paths))
-
-    # Calculate log returns
+    shocks = rng.standard_normal((n_steps, n_paths))
     log_returns = drift + diffusion * shocks
-
-    # Accumulate log returns and convert to price paths
     price_paths = np.zeros((n_steps + 1, n_paths))
     price_paths[0] = s0
     price_paths[1:] = s0 * np.exp(np.cumsum(log_returns, axis=0))
-
     return price_paths
 
 def mean_reverting_process(
@@ -123,16 +113,13 @@ def mean_reverting_process(
     if theta <= 0 or sigma < 0 or dt <= 0 or n_steps <= 0:
         raise ValueError("theta, sigma, dt, and n_steps must be positive.")
 
-    if random_seed is not None:
-        np.random.seed(random_seed)
-
+    rng = np.random.default_rng(random_seed)
+    z = rng.standard_normal((n_steps, n_paths))
     paths = np.zeros((n_steps + 1, n_paths))
     paths[0] = s0
-
+    sqrt_dt = sigma * np.sqrt(dt)
     for t in range(1, n_steps + 1):
-        z = np.random.normal(0, 1, n_paths)
-        paths[t] = paths[t-1] + theta * (mu - paths[t-1]) * dt + sigma * np.sqrt(dt) * z
-
+        paths[t] = paths[t - 1] + theta * (mu - paths[t - 1]) * dt + sqrt_dt * z[t - 1]
     return paths
 
 
@@ -190,31 +177,16 @@ def jump_diffusion_process(
     if s0 <= 0 or sigma < 0 or lamb < 0 or dt <= 0 or n_steps <= 0:
         raise ValueError("s0, sigma, lamb, dt, and n_steps must be positive.")
 
-    if random_seed is not None:
-        np.random.seed(random_seed)
-
-    # Deterministic drift and diffusion
+    rng = np.random.default_rng(random_seed)
     drift = (mu - 0.5 * sigma**2) * dt
     diffusion = sigma * np.sqrt(dt)
-
-    # Generate Brownian shocks
-    z = np.random.normal(0, 1, (n_steps, n_paths))
-
-    # Generate Jump shocks (Poisson for count, Normal for size)
-    n_jumps = np.random.poisson(lamb * dt, (n_steps, n_paths))
-    jump_sizes = np.random.normal(mu_j, sigma_j, (n_steps, n_paths))
-    
-    # Net jump component
-    jump_term = n_jumps * jump_sizes
-
-    # Calculate log returns
-    log_returns = drift + diffusion * z + jump_term
-
-    # Accumulate
+    z = rng.standard_normal((n_steps, n_paths))
+    n_jumps = rng.poisson(lamb * dt, (n_steps, n_paths))
+    jump_sizes = rng.normal(mu_j, sigma_j, (n_steps, n_paths))
+    log_returns = drift + diffusion * z + n_jumps * jump_sizes
     paths = np.zeros((n_steps + 1, n_paths))
     paths[0] = s0
     paths[1:] = s0 * np.exp(np.cumsum(log_returns, axis=0))
-
     return paths
 
 
