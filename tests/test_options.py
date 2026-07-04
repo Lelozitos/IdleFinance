@@ -66,12 +66,12 @@ class TestPutCallParity:
 class TestImpliedVolatility:
     def test_roundtrip_call(self):
         price = black_scholes_call(SPOT, STRIKE, T, R, SIGMA)
-        iv = implied_volatility(price, SPOT, STRIKE, T, R, option_type="call")
+        iv = implied_volatility(price, SPOT, STRIKE, T, R, flag="call")
         assert abs(iv - SIGMA) < 1e-4
 
     def test_roundtrip_put(self):
         price = black_scholes_put(SPOT, STRIKE, T, R, SIGMA)
-        iv = implied_volatility(price, SPOT, STRIKE, T, R, option_type="put")
+        iv = implied_volatility(price, SPOT, STRIKE, T, R, flag="put")
         assert abs(iv - SIGMA) < 1e-4
 
     def test_invalid_zero_expiry(self):
