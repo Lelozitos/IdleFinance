@@ -12,11 +12,13 @@ Examples
 >>> weights = df_prices.finance.black_litterman_weights(post_ret, post_cov)
 """
 
+from functools import wraps
+
 import numpy as np
 import pandas as pd
 from ._types import (
     Any, Optional, Tuple, List, Dict, Union,
-    OmegaMethod, TauMethod, CovarianceMethod, ReturnsMethod, ObjectiveType, 
+    OmegaMethod, TauMethod, CovarianceMethod, ReturnsMethod, ObjectiveType,
     ArrayLike, MatrixLike, PriceData, BLFullOutput, Weights,
     NumericOutput, FinancialOutput, PortfolioBounds, PortfolioConstraints,
     ViewData, BLResult, BLSingleResult, VectorOutput
@@ -28,15 +30,88 @@ from ..utils import (
     ewma_return,
     capm_return,
 )
-from ..models import black_litterman, risk_metrics, covariances
+from ..models import (
+    black_litterman, risk_metrics, covariances, efficient_frontier,
+    fixed_income, options, stochastic, equities,
+)
+
+
+def _passthrough(cls):
+    """
+    Attach every function listed in `cls._passthrough_map` to `cls` as a
+    static, doc-preserving pass-through method (same name, same signature).
+
+    Lets modules that don't operate on the DataFrame/Series itself (options,
+    fixed_income, stochastic, equities, standalone efficient-frontier/
+    covariance helpers) be called straight off `.finance`, e.g.
+    `df.finance.black_scholes_call(S=100, K=105, T=1, r=0.03, sigma=0.2)`.
+    """
+    for module, names in cls._passthrough_map.items():
+        for name in names:
+            func = getattr(module, name)
+
+            @wraps(func)
+            def _wrapper(*args, _f=func, **kwargs):
+                return _f(*args, **kwargs)
+
+            setattr(cls, name, staticmethod(_wrapper))
+    return cls
+
+
+_PASSTHROUGH_MAP = {
+    fixed_income: [
+        "bond_price", "bond_ytm", "bond_duration", "bond_convexity",
+        "credit_spread", "forward_rate", "bond_macaulay_duration",
+        "bond_modified_duration", "macaulay_duration_from_cashflows",
+    ],
+    options: [
+        "black_scholes_call", "black_scholes_put",
+        "calculate_option_price", "delta", "gamma", "vega", "theta", "rho",
+        "vanna", "volga", "charm", "calculate_greeks", "implied_volatility",
+        "batch_option_pricing", "batch_greeks", "batch_implied_volatility",
+        "scenario_pnl_grid", "stress_test", "aggregate_portfolio_greeks",
+        "run_benchmark",
+    ],
+    stochastic: [
+        "geometric_brownian_motion", "mean_reverting_process",
+        "jump_diffusion_process", "monte_carlo",
+    ],
+    equities: [
+        "cost_of_equity_capm", "cost_of_equity_build_up", "cost_of_debt", "wacc",
+        "gordon_growth_model", "h_model", "two_stage_ddm", "three_stage_ddm",
+        "dcf_valuation", "dcf_sensitivity", "reverse_dcf", "earnings_power_value",
+        "residual_income_model", "abnormal_earnings_growth", "pe_implied_price",
+        "ev_ebitda_implied_price", "price_to_book_implied",
+    ],
+    covariances: ["denoise_covariance", "sample_covariance", "exponential_covariance"],
+}
+
+
+class _LibraryMixin:
+    """
+    Gives `.finance` full, flat access to every standalone IdleFinance model
+    (fixed income, options, stochastic processes, equity valuation) — not
+    just the DataFrame/Series-native methods below. Same names, same
+    signatures, same docstrings as the underlying `IdleFinance.models.*`
+    functions; nothing here reads `self._obj`.
+    """
+
+    _passthrough_map = _PASSTHROUGH_MAP
+
+
+_passthrough(_LibraryMixin)
 
 
 @pd.api.extensions.register_dataframe_accessor("finance")
-class DataFrameFinanceAccessor:
+class DataFrameFinanceAccessor(_LibraryMixin):
     """
     Financial analysis accessor for pandas DataFrames.
 
-    Accessed via `df.finance.*` after importing IdleFinance.
+    Accessed via `df.finance.*` after importing IdleFinance. Covers the
+    full library: returns/risk/covariance/optimization on the DataFrame's
+    own price data, plus flat pass-through access to fixed income, options,
+    stochastic simulation, and equity valuation (e.g.
+    `df.finance.black_scholes_call(...)`, `df.finance.bond_price(...)`).
     """
 
     def __init__(self, pandas_obj):
@@ -373,8 +448,8 @@ class DataFrameFinanceAccessor:
         Compute optimal portfolio weights using the posterior distribution from Black-Litterman.
         """
         return black_litterman.compute_bl_weights(
-            posterior_returns, 
-            posterior_cov, 
+            posterior_returns,
+            posterior_cov,
             risk_aversion=risk_aversion,
             bounds=bounds,
             objective=objective,
@@ -384,9 +459,156 @@ class DataFrameFinanceAccessor:
             risk_free_rate=risk_free_rate,
         )
 
+    def value_at_risk(
+        self,
+        confidence: float = 0.95,
+        method: str = "historical",
+        weights: Optional[ArrayLike] = None,
+        frequency: int = 1,
+        returns_data: bool = False,
+    ) -> NumericOutput:
+        """
+        Value at Risk (VaR) per column, or portfolio VaR if `weights` given.
+        See `risk_metrics.value_at_risk` for method details.
+        """
+        ret = self.returns(returns_data=returns_data)
+        return risk_metrics.value_at_risk(ret, confidence=confidence, method=method, weights=weights, frequency=frequency)
+
+    def expected_shortfall(
+        self,
+        confidence: float = 0.95,
+        method: str = "historical",
+        weights: Optional[ArrayLike] = None,
+        frequency: int = 1,
+        returns_data: bool = False,
+    ) -> NumericOutput:
+        """
+        Expected Shortfall / CVaR per column, or portfolio ES if `weights` given.
+        See `risk_metrics.expected_shortfall` for method details.
+        """
+        ret = self.returns(returns_data=returns_data)
+        return risk_metrics.expected_shortfall(ret, confidence=confidence, method=method, weights=weights, frequency=frequency)
+
+    def probabilistic_sharpe_ratio(
+        self,
+        benchmark_sr: float = 0.0,
+        risk_free_rate: float = 0.0,
+        frequency: int = 252,
+        returns_data: bool = False,
+    ) -> NumericOutput:
+        """Probability the true Sharpe Ratio exceeds `benchmark_sr`. See `risk_metrics.probabilistic_sharpe_ratio`."""
+        ret = self.returns(returns_data=returns_data)
+        return risk_metrics.probabilistic_sharpe_ratio(ret, benchmark_sr=benchmark_sr, risk_free_rate=risk_free_rate, frequency=frequency)
+
+    def marginal_contribution_to_risk(
+        self,
+        weights: ArrayLike,
+        cov_matrix: Optional[MatrixLike] = None,
+        cov_method: CovarianceMethod = "sample",
+        **kwargs: Any,
+    ) -> pd.Series:
+        """MCTR per asset. Computes the covariance from `self._obj` unless `cov_matrix` is given."""
+        if cov_matrix is None:
+            cov_matrix = self.covariance(method=cov_method, **kwargs)
+        return risk_metrics.marginal_contribution_to_risk(weights, cov_matrix)
+
+    def component_var(
+        self,
+        weights: ArrayLike,
+        confidence: float = 0.95,
+        method: str = "historical",
+        returns_data: bool = False,
+    ) -> pd.DataFrame:
+        """Per-asset decomposition of portfolio VaR. See `risk_metrics.component_var`."""
+        ret = self.returns(returns_data=returns_data)
+        return risk_metrics.component_var(weights, ret, confidence=confidence, method=method)
+
+    def min_variance(
+        self,
+        cov_matrix: Optional[MatrixLike] = None,
+        cov_method: CovarianceMethod = "sample",
+        bounds: PortfolioBounds = None,
+        target_sum: float = 1.0,
+    ) -> np.ndarray:
+        """Global Minimum Variance Portfolio weights. Computes covariance from `self._obj` unless `cov_matrix` is given."""
+        if cov_matrix is None:
+            cov_matrix = self.covariance(method=cov_method)
+        return efficient_frontier.min_variance(cov_matrix, bounds=bounds, target_sum=target_sum)
+
+    def max_sharpe(
+        self,
+        expected_returns: Optional[ArrayLike] = None,
+        cov_matrix: Optional[MatrixLike] = None,
+        returns_method: ReturnsMethod = "mean_historical",
+        cov_method: CovarianceMethod = "sample",
+        risk_free_rate: float = 0.0,
+        bounds: PortfolioBounds = None,
+        target_sum: float = 1.0,
+    ) -> np.ndarray:
+        """Maximum Sharpe (tangency) portfolio weights, auto-deriving inputs from `self._obj` if not given."""
+        if cov_matrix is None:
+            cov_matrix = self.covariance(method=cov_method)
+        if expected_returns is None:
+            expected_returns = self.expected_returns(method=returns_method)
+        return efficient_frontier.max_sharpe(expected_returns, cov_matrix, risk_free_rate=risk_free_rate, bounds=bounds, target_sum=target_sum)
+
+    def efficient_return(
+        self,
+        target_return: float,
+        expected_returns: Optional[ArrayLike] = None,
+        cov_matrix: Optional[MatrixLike] = None,
+        returns_method: ReturnsMethod = "mean_historical",
+        cov_method: CovarianceMethod = "sample",
+        bounds: PortfolioBounds = None,
+        target_sum: float = 1.0,
+    ) -> np.ndarray:
+        """Minimum-variance portfolio weights for a given `target_return`, auto-deriving inputs from `self._obj` if not given."""
+        if cov_matrix is None:
+            cov_matrix = self.covariance(method=cov_method)
+        if expected_returns is None:
+            expected_returns = self.expected_returns(method=returns_method)
+        return efficient_frontier.efficient_return(expected_returns, cov_matrix, target_return, bounds=bounds, target_sum=target_sum)
+
+    def efficient_frontier(
+        self,
+        expected_returns: Optional[ArrayLike] = None,
+        cov_matrix: Optional[MatrixLike] = None,
+        returns_method: ReturnsMethod = "mean_historical",
+        cov_method: CovarianceMethod = "sample",
+        n_points: int = 50,
+        bounds: PortfolioBounds = None,
+        target_sum: float = 1.0,
+        risk_free_rate: float = 0.0,
+    ) -> pd.DataFrame:
+        """Full efficient frontier (`['Return', 'Volatility', 'Sharpe']` per point), auto-deriving inputs from `self._obj` if not given."""
+        if cov_matrix is None:
+            cov_matrix = self.covariance(method=cov_method)
+        if expected_returns is None:
+            expected_returns = self.expected_returns(method=returns_method)
+        return efficient_frontier.efficient_frontier(
+            expected_returns, cov_matrix, n_points=n_points, bounds=bounds,
+            target_sum=target_sum, risk_free_rate=risk_free_rate,
+        )
+
+    def portfolio_performance(
+        self,
+        weights: ArrayLike,
+        expected_returns: Optional[ArrayLike] = None,
+        cov_matrix: Optional[MatrixLike] = None,
+        returns_method: ReturnsMethod = "mean_historical",
+        cov_method: CovarianceMethod = "sample",
+        risk_free_rate: float = 0.0,
+    ) -> tuple:
+        """`(return, volatility, sharpe)` for given `weights`, auto-deriving inputs from `self._obj` if not given."""
+        if cov_matrix is None:
+            cov_matrix = self.covariance(method=cov_method)
+        if expected_returns is None:
+            expected_returns = self.expected_returns(method=returns_method)
+        return efficient_frontier.portfolio_performance(weights, expected_returns, cov_matrix, risk_free_rate=risk_free_rate)
+
 
 @pd.api.extensions.register_series_accessor("finance")
-class SeriesFinanceAccessor:
+class SeriesFinanceAccessor(_LibraryMixin):
     """
     Financial analysis accessor for pandas Series.
 
@@ -496,6 +718,15 @@ class SeriesFinanceAccessor:
         """
         return risk_metrics.drawdown(self._obj, from_returns=from_returns)
 
+    def rolling_volatility(self, window: int = 20, annualized: bool = True, frequency: int = 252, returns_data: bool = False) -> pd.Series:
+        """
+        Rolling volatility.
+
+        Formula: σ_window = std(r over window);  σ_annual = σ_window × √frequency.
+        """
+        ret = self.returns(returns_data=returns_data)
+        return risk_metrics.rolling_volatility(ret, window=window, annualized=annualized, frequency=frequency)
+
     def max_drawdown(self, from_returns: bool = False) -> float:
         """
         Maximum drawdown over the timeframe.
@@ -601,3 +832,36 @@ class SeriesFinanceAccessor:
             Sortino ratio.
         """
         return risk_metrics.sortino_ratio(self._obj, risk_free_rate, target_return, frequency)
+
+    def value_at_risk(
+        self,
+        confidence: float = 0.95,
+        method: str = "historical",
+        frequency: int = 1,
+        returns_data: bool = False,
+    ) -> float:
+        """Value at Risk (VaR). See `risk_metrics.value_at_risk` for method details."""
+        ret = self.returns(returns_data=returns_data)
+        return risk_metrics.value_at_risk(ret, confidence=confidence, method=method, frequency=frequency)
+
+    def expected_shortfall(
+        self,
+        confidence: float = 0.95,
+        method: str = "historical",
+        frequency: int = 1,
+        returns_data: bool = False,
+    ) -> float:
+        """Expected Shortfall / CVaR. See `risk_metrics.expected_shortfall` for method details."""
+        ret = self.returns(returns_data=returns_data)
+        return risk_metrics.expected_shortfall(ret, confidence=confidence, method=method, frequency=frequency)
+
+    def probabilistic_sharpe_ratio(
+        self,
+        benchmark_sr: float = 0.0,
+        risk_free_rate: float = 0.0,
+        frequency: int = 252,
+        returns_data: bool = False,
+    ) -> float:
+        """Probability the true Sharpe Ratio exceeds `benchmark_sr`. See `risk_metrics.probabilistic_sharpe_ratio`."""
+        ret = self.returns(returns_data=returns_data)
+        return risk_metrics.probabilistic_sharpe_ratio(ret, benchmark_sr=benchmark_sr, risk_free_rate=risk_free_rate, frequency=frequency)
