@@ -1,6 +1,6 @@
 # IdleFinance
 
-**IdleFinance** is a Python library for quantitative finance that embeds portfolio theory, risk modeling, valuation, and asset pricing tools directly into the pandas ecosystem via a seamless `.finance` accessor.
+**IdleFinance** is a Python library for quantitative finance — portfolio theory, risk modeling, valuation, and asset pricing, plugged straight into pandas through a `.finance` accessor.
 
 ```python
 pip install IdleFinance
@@ -14,23 +14,27 @@ pip install "IdleFinance[excel]"
 
 ---
 
-## Table of Contents
+<details>
+<summary><strong>Table of Contents</strong></summary>
 
 1. [Overview](#overview)
 2. [Quick Start](#quick-start)
 3. [Core Financial Math](#core-financial-math)
 4. [Pandas Accessor](#pandas-accessor)
-5. [Expected Returns](#expected-returns)
-6. [Covariance Estimation](#covariance-estimation)
-7. [Portfolio Optimization](#portfolio-optimization)
-8. [Risk Metrics](#risk-metrics)
-9. [Fixed Income](#fixed-income)
-10. [Options Pricing](#options-pricing)
-11. [Equity Valuation](#equity-valuation)
-12. [Stochastic Simulations](#stochastic-simulations)
-13. [DCF Excel Export](#dcf-excel-export)
-14. [API Reference](#api-reference)
-15. [Type Aliases](#type-aliases)
+5. [Accessor Pass-Through](#accessor-pass-through)
+6. [Expected Returns](#expected-returns)
+7. [Covariance Estimation](#covariance-estimation)
+8. [Portfolio Optimization](#portfolio-optimization)
+9. [Risk Metrics](#risk-metrics)
+10. [Fixed Income](#fixed-income)
+11. [Options Pricing](#options-pricing)
+12. [Equity Valuation](#equity-valuation)
+13. [Stochastic Simulations](#stochastic-simulations)
+14. [DCF Excel Export](#dcf-excel-export)
+15. [API Reference](#api-reference)
+16. [Type Aliases](#type-aliases)
+
+</details>
 
 ---
 
@@ -98,22 +102,6 @@ idf.effective_annual_rate(period_rate=0.01, periods_per_year=12)  # → 12.68%
 idf.compound_interest(1000, rate=0.05, time=3)   # → 1157.63
 idf.simple_interest(1000, rate=0.05, time=3)     # → 1150.00
 ```
-
-### Reference
-
-| Function | Parameters | Returns | Description |
-|----------|-----------|---------|-------------|
-| `fv(principal, rate, time, n=1)` | principal: float, rate: float, time: float, n: int | float | Future value with compound interest |
-| `pv(future_value, rate, time, n=1)` | future_value: float, rate: float, time: float, n: int | float | Present value with compound interest |
-| `npv(cashflows, rate)` | cashflows: list, rate: float | float | Net present value of cashflow stream |
-| `irr(cashflows, guess=0.1)` | cashflows: list, guess: float | float | Internal rate of return (Newton-Raphson) |
-| `payback_period(cashflows)` | cashflows: list | float | Payback period with linear interpolation |
-| `profitability_index(cashflows, rate)` | cashflows: list, rate: float | float | PV of future flows / initial outlay |
-| `effective_annual_rate(period_rate, periods_per_year)` | period_rate: float, periods_per_year: int | float | EAR from periodic rate |
-| `compound_interest(principal, rate, time, n=1)` | | float | Ending balance with compound interest |
-| `simple_interest(principal, rate, time)` | | float | Ending balance with simple interest |
-| `annuity_payment(present_value, rate, periods)` | | float | Fixed payment for ordinary annuity |
-| `loan_payment(principal, rate, periods)` | | float | Fixed amortizing loan payment (PMT) |
 
 ---
 
@@ -221,6 +209,34 @@ post_ret, post_var, weight = series.finance.black_litterman(
 | `sortino_ratio(risk_free_rate, target_return, frequency)` | | float | Sortino ratio |
 | `risk_aversion(risk_free_rate, frequency)` | | float | Market-implied λ |
 | `black_litterman(prior_return, view, view_confidence, tau_val, risk_aversion)` | | (float, float, float) | Single-asset BL |
+
+---
+
+## Accessor Pass-Through
+
+`.finance` also gives flat, direct access to every standalone model that doesn't operate on the DataFrame/Series's own price data — fixed income, options (pricing, Greeks, IV, vol surfaces), stochastic simulation, equity valuation, and the standalone covariance helpers. Same names, same signatures, same docstrings as the underlying `IdleFinance.models.*` functions — nothing here reads `self._obj`, so it's callable identically from `df.finance` or `series.finance`.
+
+```python
+# Options, fixed income, stochastic, equities — all reachable off .finance
+call  = prices.finance.black_scholes_call(spot=100, strike=105, time_to_expiry=1.0,
+                                          risk_free_rate=0.03, volatility=0.20)
+greeks = prices.finance.calculate_greeks(spot=100, strike=105, time_to_expiry=1.0,
+                                         risk_free_rate=0.03, volatility=0.20, flag="c")
+price  = prices.finance.bond_price(face_value=1000, coupon_rate=0.05, ytm=0.06,
+                                   years_to_maturity=10, frequency=2)
+paths  = prices.finance.geometric_brownian_motion(s0=100, mu=0.08, sigma=0.20,
+                                                  dt=1/252, n_steps=252, n_paths=1000)
+wacc   = prices.finance.wacc(market_equity=800_000, market_debt=200_000,
+                             cost_of_equity=0.10, cost_of_debt_pretax=0.06, tax_rate=0.30)
+```
+
+| Module | Pass-through functions |
+|--------|------------------------|
+| `fixed_income` | `bond_price`, `bond_ytm`, `bond_duration`, `bond_convexity`, `credit_spread`, `forward_rate`, `bond_macaulay_duration`, `bond_modified_duration`, `macaulay_duration_from_cashflows` |
+| `options` | `black_scholes_call`, `black_scholes_put`, `calculate_option_price`, `delta`, `gamma`, `vega`, `theta`, `rho`, `vanna`, `volga`, `charm`, `calculate_greeks`, `implied_volatility`, `batch_option_pricing`, `batch_greeks`, `batch_implied_volatility`, `scenario_pnl_grid`, `stress_test`, `aggregate_portfolio_greeks`, `run_benchmark` |
+| `stochastic` | `geometric_brownian_motion`, `mean_reverting_process`, `jump_diffusion_process`, `monte_carlo` |
+| `equities` | `cost_of_equity_capm`, `cost_of_equity_build_up`, `cost_of_debt`, `wacc`, `gordon_growth_model`, `h_model`, `two_stage_ddm`, `three_stage_ddm`, `dcf_valuation`, `dcf_sensitivity`, `reverse_dcf`, `earnings_power_value`, `residual_income_model`, `abnormal_earnings_growth`, `pe_implied_price`, `ev_ebitda_implied_price`, `price_to_book_implied` |
+| `covariances` | `denoise_covariance`, `sample_covariance`, `exponential_covariance` |
 
 ---
 
@@ -526,12 +542,13 @@ mac_cf = fi.macaulay_duration_from_cashflows(cfs, ytm=0.05)
 
 ## Options Pricing
 
+Black-Scholes pricing, full Greeks (first and second order), implied volatility (Brent/Newton/hybrid), vectorized batch operations, a volatility surface builder, and scenario/stress tooling.
+
 ```python
 import IdleFinance as idf
 from IdleFinance.models.options import (
-    black_scholes_call,
-    black_scholes_put,
-    implied_volatility,
+    black_scholes_call, black_scholes_put, calculate_option_price,
+    calculate_greeks, implied_volatility, VolatilitySurface,
 )
 
 # European call / put (Black-Scholes)
@@ -543,17 +560,87 @@ put  = black_scholes_put(spot=100, strike=100, time_to_expiry=1.0,
 
 # Put-call parity: call - put = spot - K·e^(-rT)
 
-# Implied volatility (Brent root-finding)
+# Unified pricer — flag "c"/"call" or "p"/"put"
+price = calculate_option_price(spot=100, strike=100, time_to_expiry=1.0,
+                               risk_free_rate=0.05, volatility=0.20, flag="p")
+
+# All Greeks in one call (delta, gamma, vega, theta, rho; +vanna/volga/charm)
+greeks = calculate_greeks(spot=100, strike=100, time_to_expiry=1.0,
+                          risk_free_rate=0.05, volatility=0.20,
+                          flag="c", second_order=True)
+greeks.delta, greeks.gamma, greeks.vega, greeks.theta, greeks.rho
+greeks.to_dict()
+
+# Implied volatility (method: "brent" | "newton" | "hybrid")
 iv = implied_volatility(option_price=10.45, spot=100, strike=100,
                         time_to_expiry=1.0, risk_free_rate=0.05,
-                        option_type="call")                      # → 0.20
+                        flag="call")                             # → 0.20
+
+# Vectorized batch pricing / Greeks / IV over arrays
+prices = idf.options.batch_option_pricing(
+    spot=[95, 100, 105], strike=100, time_to_expiry=1.0,
+    risk_free_rate=0.05, volatility=0.20, flags="c",
+)
+greeks_arr = idf.options.batch_greeks(spot=[95, 100, 105], strike=100,
+                                      time_to_expiry=1.0, risk_free_rate=0.05,
+                                      volatility=0.20, flags="c")
+ivs = idf.options.batch_implied_volatility(
+    option_prices=prices, spot=[95, 100, 105], strike=100,
+    time_to_expiry=1.0, risk_free_rate=0.05, flags="c",
+)
+
+# Volatility surface — build from a (expiries x strikes) grid of market prices
+surface = VolatilitySurface.from_market_quotes(
+    spot=100, strikes=[90, 95, 100, 105, 110], expiries=[0.25, 0.5, 1.0],
+    option_prices=market_price_grid, risk_free_rate=0.03, flag="c",
+)
+surface.smile(expiry=0.5)           # vol smile at nearest expiry
+surface.term_structure(strike=100)  # IV term structure at nearest strike
+surface.skew()                      # risk reversal / butterfly per expiry
+surface.interpolate(strike=102, expiry=0.4)  # bilinear IV interpolation
+
+# P&L grid across spot/vol scenarios, relative to a base case
+grid = idf.options.scenario_pnl_grid(
+    spot_range=[90, 95, 100, 105, 110], vol_range=[0.15, 0.20, 0.25],
+    strike=100, time_to_expiry=1.0, risk_free_rate=0.05, flag="c",
+    current_spot=100, current_vol=0.20,
+)
+
+# Discrete spot/vol/rate shock stress test
+shocks = idf.options.stress_test(
+    spot=100, strike=100, time_to_expiry=1.0, risk_free_rate=0.05, volatility=0.20,
+)
+
+# Aggregate Greeks across a multi-position options portfolio
+book = idf.options.aggregate_portfolio_greeks([
+    {"spot": 100, "strike": 100, "time_to_expiry": 1.0, "risk_free_rate": 0.05,
+     "volatility": 0.20, "flag": "c", "quantity": 10},
+    {"spot": 100, "strike": 95, "time_to_expiry": 0.5, "risk_free_rate": 0.05,
+     "volatility": 0.25, "flag": "p", "quantity": -5},
+])  # per-position rows + a TOTAL summary row
+
+# Throughput benchmark for the vectorized pricing/Greeks/IV paths
+bench = idf.options.run_benchmark(n=100_000)
 ```
 
 | Function | Parameters | Returns | Description |
 |----------|-----------|---------|-------------|
 | `black_scholes_call(spot, strike, time_to_expiry, risk_free_rate, volatility)` | All float | float | European call price |
 | `black_scholes_put(spot, strike, time_to_expiry, risk_free_rate, volatility)` | All float | float | European put price |
-| `implied_volatility(option_price, spot, strike, time_to_expiry, risk_free_rate, option_type="call")` | | float | IV from market price |
+| `calculate_option_price(spot, strike, time_to_expiry, risk_free_rate, volatility, flag="c")` | | float | Unified call/put pricer |
+| `delta/gamma/vega/theta/rho(spot, strike, time_to_expiry, risk_free_rate, volatility, flag="c")` | gamma/vega take no flag | float | Individual first-order Greeks |
+| `vanna/volga/charm(spot, strike, time_to_expiry, risk_free_rate, volatility, flag="c")` | charm takes flag | float | Second-order Greeks |
+| `calculate_greeks(..., flag="c", second_order=False)` | | `GreeksBundle` | All Greeks in one call; `second_order=True` adds vanna/volga/charm |
+| `implied_volatility(option_price, spot, strike, time_to_expiry, risk_free_rate, flag="c", method="hybrid")` | method: "brent"\|"newton"\|"hybrid" | float | IV from market price |
+| `batch_option_pricing(spot, strike, time_to_expiry, risk_free_rate, volatility, flags="c")` | ArrayLike inputs, broadcast | ndarray | Vectorized pricing |
+| `batch_greeks(spot, strike, time_to_expiry, risk_free_rate, volatility, flags="c")` | | dict[str, ndarray] | Vectorized delta/gamma/vega/theta/rho |
+| `batch_implied_volatility(option_prices, spot, strike, time_to_expiry, risk_free_rate, flags="c")` | | ndarray | Vectorized IV inversion (NaN on failure) |
+| `VolatilitySurface(df)` / `.from_market_quotes(...)` | df needs `strike`,`expiry`,`iv` cols | `VolatilitySurface` | Surface builder over (strike × expiry) grid |
+| `VolatilitySurface.smile/term_structure/skew/interpolate/to_dataframe` | | DataFrame / float | Surface analytics |
+| `scenario_pnl_grid(spot_range, vol_range, strike, time_to_expiry, risk_free_rate, flag="c", current_spot=None, current_vol=None)` | | DataFrame | Price or P&L grid across (spot, vol) |
+| `stress_test(spot, strike, time_to_expiry, risk_free_rate, volatility, flag="c", spot_shocks=None, vol_shocks=None, rate_shocks=None)` | | DataFrame | Discrete shock scenarios with P&L |
+| `aggregate_portfolio_greeks(positions)` | list of position dicts | DataFrame | Per-position + TOTAL Greeks/value |
+| `run_benchmark(n=100_000, seed=42)` | | DataFrame | Throughput benchmark for batch pricing/Greeks/IV |
 
 ---
 
